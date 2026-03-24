@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect } from 'react';
 
 export default function AlbumPage() {
   const [currentTab, setCurrentTab] = useState('메인');
@@ -18,12 +18,11 @@ export default function AlbumPage() {
   const [isMinimized, setIsMinimized] = useState(false);
 
   const audioRef = useRef(null);
-  const audioCtxRef = useRef(null);
-  const gainNodeRef = useRef(null);
   const progressBarRef = useRef(null);
   const volumeRef = useRef(null);
   const lyricContainerRef = useRef(null); 
   const lyricRefs = useRef([]);
+  const fadeAnimationRef = useRef(null);
 
   const trackList = [
     { 
@@ -48,50 +47,54 @@ export default function AlbumPage() {
     { 번호: 7, 제목: "수록곡 7", 가사데이터: [{ 시간: 0, 내용: "준비 중..." }], 음원: "/track7.wav" },
   ];
 
-  const initAudioCtx = useCallback(() => {
-    if (!audioCtxRef.current) {
-      const AudioContext = window.AudioContext || window.webkitAudioContext;
-      const ctx = new AudioContext();
-      const gainNode = ctx.createGain();
-      const source = ctx.createMediaElementSource(audioRef.current);
-      source.connect(gainNode).connect(ctx.destination);
-      gainNode.gain.setValueAtTime(volume, ctx.currentTime);
-      audioCtxRef.current = ctx;
-      gainNodeRef.current = gainNode;
-    }
-  }, [volume]);
+  // 완전히 새롭게 짠 안정적인 페이드 인 아웃 로직
+  const doFade = (targetVolume, durationMs = 150) => {
+    return new Promise(resolve => {
+      if (!audioRef.current) return resolve();
+      
+      // 혹시 이전에 진행 중이던 페이드가 있다면 취소
+      if (fadeAnimationRef.current) {
+        cancelAnimationFrame(fadeAnimationRef.current);
+      }
 
-  // 확실하게 기다려주는 스마트 페이드 함수 (0.2초)
-  const doFade = async (targetGain, durationSec = 0.2) => {
-    if (!gainNodeRef.current || !audioCtxRef.current) return;
-    const ctx = audioCtxRef.current;
-    if (ctx.state === 'suspended') await ctx.resume();
-    
-    const gain = gainNodeRef.current.gain;
-    const now = ctx.currentTime;
-    
-    gain.cancelScheduledValues(now);
-    gain.setValueAtTime(gain.value, now);
-    gain.linearRampToValueAtTime(Math.max(targetGain, 0.001), now + durationSec);
-    
-    // 페이드가 완전히 끝날 때까지 프로그램이 대기함
-    return new Promise(resolve => setTimeout(resolve, durationSec * 1000));
+      const startVolume = audioRef.current.volume;
+      const volumeDiff = targetVolume - startVolume;
+      const startTime = performance.now();
+
+      const animate = (time) => {
+        const elapsed = time - startTime;
+        const progress = Math.min(elapsed / durationMs, 1);
+        
+        audioRef.current.volume = Math.max(0, Math.min(1, startVolume + (volumeDiff * progress)));
+
+        if (progress < 1) {
+          fadeAnimationRef.current = requestAnimationFrame(animate);
+        } else {
+          audioRef.current.volume = Math.max(0, Math.min(1, targetVolume));
+          fadeAnimationRef.current = null;
+          resolve(); // 페이드가 완전히 끝났음을 알려줌
+        }
+      };
+      
+      fadeAnimationRef.current = requestAnimationFrame(animate);
+    });
   };
 
   const togglePlay = async (e) => {
     if (e) { e.preventDefault(); e.stopPropagation(); }
-    initAudioCtx();
+    if (!audioRef.current) return;
     
     if (isPlaying) {
-      await doFade(0.001); // 소리가 꺼질 때까지 기다림
+      // 1. 소리가 0이 될 때까지 기다림
+      await doFade(0, 150);
       audioRef.current.pause();
       setIsPlaying(false);
     } else {
-      if (audioCtxRef.current.state === 'suspended') await audioCtxRef.current.resume();
-      gainNodeRef.current.gain.setValueAtTime(0.001, audioCtxRef.current.currentTime);
-      await audioRef.current.play(); // 무음 상태로 재생 시작
+      audioRef.current.volume = 0;
+      await audioRef.current.play();
       setIsPlaying(true);
-      await doFade(volume); // 서서히 볼륨 업
+      // 2. 재생 시작 후 소리가 커짐
+      await doFade(volume, 150);
     }
   };
 
@@ -115,14 +118,16 @@ export default function AlbumPage() {
     const pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
     const newTime = pos * duration;
 
-    initAudioCtx();
-
     if (isPlaying) {
-      await doFade(0.001); // 페이드 아웃 완료 대기
+      await doFade(0, 150); // 페이드 아웃 완료 대기
       audioRef.current.currentTime = newTime;
       setCurrentTime(newTime);
-      setIsDragging(false); // 이동 완료 후 드래그 해제
-      await doFade(volume); // 다시 페이드 인
+      setIsDragging(false);
+      
+      // 시간 이동 후 퍽 소리가 나지 않게 브라우저에 0.05초 여유를 줌
+      await new Promise(r => setTimeout(r, 50)); 
+      
+      await doFade(volume, 150); // 다시 페이드 인
     } else {
       audioRef.current.currentTime = newTime;
       setCurrentTime(newTime);
@@ -131,23 +136,24 @@ export default function AlbumPage() {
   };
 
   const seekTo = async (time) => {
-    initAudioCtx();
+    if (!audioRef.current) return;
+    
     if (isPlaying) {
-      await doFade(0.001);
+      await doFade(0, 150);
       audioRef.current.currentTime = time;
-      await doFade(volume);
+      await new Promise(r => setTimeout(r, 50));
+      await doFade(volume, 150);
     } else {
       audioRef.current.currentTime = time;
-      if (audioCtxRef.current.state === 'suspended') await audioCtxRef.current.resume();
-      gainNodeRef.current.gain.setValueAtTime(0.001, audioCtxRef.current.currentTime);
+      audioRef.current.volume = 0;
       await audioRef.current.play();
       setIsPlaying(true);
-      await doFade(volume);
+      await doFade(volume, 150);
     }
   };
 
   const changeTrack = async (direction) => {
-    if (isPlaying) await doFade(0.001);
+    if (isPlaying) await doFade(0, 150);
     if (direction === 'next') {
       setCurrentTrack(prev => (prev < 7 ? prev + 1 : 1));
     } else {
@@ -163,11 +169,10 @@ export default function AlbumPage() {
   };
 
   useEffect(() => {
-    if (audioRef.current) {
-      audioRef.current.volume = 1;
-      if (gainNodeRef.current) doFade(volume, 0.1);
+    if (audioRef.current && isPlaying) {
+      audioRef.current.volume = volume;
     }
-  }, [volume]);
+  }, [volume, isPlaying]);
 
   useEffect(() => {
     const lyrics = trackList[currentTrack - 1].가사데이터;
@@ -201,11 +206,14 @@ export default function AlbumPage() {
       audioRef.current.load();
       setCurrentTime(0);
       setActiveLyricIndex(0);
+      
       if (isPlaying) {
-        if (gainNodeRef.current) gainNodeRef.current.gain.setValueAtTime(0.001, audioCtxRef.current.currentTime);
+        audioRef.current.volume = 0;
         audioRef.current.play().then(() => {
-          doFade(volume, 0.2);
+          doFade(volume, 200);
         }).catch(() => setIsPlaying(false));
+      } else {
+        audioRef.current.volume = volume;
       }
     }
   }, [currentTrack]);
@@ -221,7 +229,6 @@ export default function AlbumPage() {
         preload="auto" playsInline
       />
 
-      {/* 상단 탭 */}
       <div className="sticky top-0 z-40 bg-black/95 border-b border-gray-800 flex justify-center space-x-10 p-4 shadow-md">
         <button onClick={() => setCurrentTab('메인')} className={currentTab === '메인' ? 'text-yellow-400 font-bold border-b-2 border-yellow-400 pb-1' : 'text-gray-400'}>메인 화면</button>
         <button onClick={() => setCurrentTab('비하인드')} className={currentTab === '비하인드' ? 'text-yellow-400 font-bold border-b-2 border-yellow-400 pb-1' : 'text-gray-400'}>비하인드</button>
@@ -275,30 +282,30 @@ export default function AlbumPage() {
         <div className="p-10 text-center text-gray-500 font-light">작업 비하인드가 곧 업데이트됩니다.</div>
       )}
 
-      {/* 완벽하게 분리된 하단 플레이어 래퍼 */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 flex justify-center pointer-events-none">
-        <div 
-          className={`w-full max-w-md px-4 transition-transform duration-500 ease-in-out pointer-events-auto flex flex-col items-center
-            ${isMinimized ? 'translate-y-[calc(100%-40px)]' : 'translate-y-[-24px]'}`}
-        >
-          {/* 독립적인 상단 버튼 (높이 40px) */}
+      {/* 숨김 높이를 48px 버튼 크기만큼 뺀 값으로 계산하여 자연스럽게 일체화시켰습니다 */}
+      <div className={`fixed bottom-0 left-0 right-0 z-50 flex justify-center pointer-events-none transition-transform duration-500 ease-in-out ${isMinimized ? 'translate-y-[calc(100%-48px)]' : 'translate-y-0'}`}>
+        
+        {/* 플레이어 본체를 둥글게 묶고 안쪽에 버튼을 배치 */}
+        <div className="w-full max-w-md bg-gray-900/95 border border-gray-700 rounded-t-3xl shadow-[0_-10px_30px_rgba(0,0,0,0.5)] backdrop-blur-xl pointer-events-auto flex flex-col px-4 pb-8">
+          
+          {/* 안으로 쏙 들어간 깔끔한 형태의 일체형 닫기/열기 버튼 */}
           <div 
             onClick={() => setIsMinimized(!isMinimized)} 
-            className="w-16 h-10 bg-gray-900 border border-gray-700 border-b-0 rounded-t-2xl flex items-center justify-center cursor-pointer shadow-[0_-5px_15px_rgba(0,0,0,0.3)] z-50"
+            className="w-full h-12 flex items-center justify-center cursor-pointer active:opacity-50"
           >
             {isMinimized ? (
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-yellow-400 mt-1">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-yellow-400">
                 <polyline points="18 15 12 9 6 15"></polyline>
               </svg>
             ) : (
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400 mt-1">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400">
                 <polyline points="6 9 12 15 18 9"></polyline>
               </svg>
             )}
           </div>
 
-          {/* 플레이어 본체 */}
-          <div className="w-full bg-gray-900/95 border border-gray-700 rounded-3xl p-5 shadow-2xl backdrop-blur-xl -mt-[1px]">
+          {/* 내부 플레이어 제어 요소들 */}
+          <div>
             <div className="flex items-center justify-between mb-4 px-2">
               <button onClick={() => changeTrack('prev')} className="p-2 text-gray-400 active:scale-90 transition-transform">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
@@ -319,7 +326,6 @@ export default function AlbumPage() {
               </button>
 
               <div className="flex-grow flex flex-col space-y-2 group">
-                {/* 터치 포인터 캡처가 적용된 드래그 영역 */}
                 <div 
                   ref={progressBarRef}
                   onPointerDown={handlePointerDown}

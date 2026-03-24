@@ -169,12 +169,20 @@ export default function AlbumPage() {
                 <div 
                   key={index}
                   ref={el => lyricRefs.current[index] = el}
-                  className={`transition-all duration-500 text-center py-2 ${
+                  onClick={() => {
+                    if (audioRef.current) {
+                      audioRef.current.currentTime = lyric.시간;
+                      if (!isPlaying) {
+                        audioRef.current.play().then(() => setIsPlaying(true));
+                      }
+                    }
+                  }}
+                  className={`transition-all duration-500 text-center py-2 cursor-pointer ${
                     !isAutoScroll 
-                    ? 'text-white opacity-100' 
+                    ? 'text-white opacity-100 select-text' 
                     : activeLyricIndex === index 
-                    ? 'text-white text-xl font-bold scale-110 opacity-100' 
-                    : 'text-gray-600 opacity-40 scale-100'
+                    ? 'text-white text-xl font-bold scale-110 opacity-100 select-none' 
+                    : 'text-gray-600 opacity-40 scale-100 select-none'
                   }`}
                 >
                   {lyric.내용}

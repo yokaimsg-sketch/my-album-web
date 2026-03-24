@@ -8,21 +8,22 @@ export default function AlbumPage() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [volume, setVolume] = useState(0.5);
-  const [showVolume, setShowVolume] = useState(false);
+  
+  const [isMuted, setIsMuted] = useState(false);
   const [isListOpen, setIsListOpen] = useState(false);
   const [isAutoScroll, setIsAutoScroll] = useState(true);
   const [activeLyricIndex, setActiveLyricIndex] = useState(0);
-  
   const [isDragging, setIsDragging] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
 
   const audioRef = useRef(null);
   const progressBarRef = useRef(null);
-  const volumeRef = useRef(null);
   const lyricContainerRef = useRef(null); 
   const lyricRefs = useRef([]);
+  
+  // 페이드 애니메이션과 재생 조작 겹침을 막기 위한 안전장치
   const fadeAnimationRef = useRef(null);
+  const isSeekingRef = useRef(false); 
 
   const trackList = [
     { 
@@ -47,15 +48,10 @@ export default function AlbumPage() {
     { 번호: 7, 제목: "수록곡 7", 가사데이터: [{ 시간: 0, 내용: "준비 중..." }], 음원: "/track7.wav" },
   ];
 
-  // 완전히 새롭게 짠 안정적인 페이드 인 아웃 로직
   const doFade = (targetVolume, durationMs = 150) => {
     return new Promise(resolve => {
       if (!audioRef.current) return resolve();
-      
-      // 혹시 이전에 진행 중이던 페이드가 있다면 취소
-      if (fadeAnimationRef.current) {
-        cancelAnimationFrame(fadeAnimationRef.current);
-      }
+      if (fadeAnimationRef.current) cancelAnimationFrame(fadeAnimationRef.current);
 
       const startVolume = audioRef.current.volume;
       const volumeDiff = targetVolume - startVolume;
@@ -72,29 +68,77 @@ export default function AlbumPage() {
         } else {
           audioRef.current.volume = Math.max(0, Math.min(1, targetVolume));
           fadeAnimationRef.current = null;
-          resolve(); // 페이드가 완전히 끝났음을 알려줌
+          resolve();
         }
       };
-      
       fadeAnimationRef.current = requestAnimationFrame(animate);
     });
   };
 
+  // 모든 시간 이동 로직을 통제하는 중앙 함수 (팝 노이즈 원천 차단)
+  const executeSeek = async (newTime, forcePlay = false) => {
+    // 이미 이동 중이거나 페이드 중이면 중복 실행 방지
+    if (!audioRef.current || isSeekingRef.current) return;
+    isSeekingRef.current = true;
+
+    const willPlay = isPlaying || forcePlay;
+
+    try {
+      if (isPlaying) {
+        await doFade(0, 150); // 1. 부드럽게 볼륨 0으로 아웃
+        audioRef.current.pause(); // 2. 엔진을 멈춰서 끊기는 소리 방지
+      }
+
+      // 3. 엔진이 정지된 조용한 상태에서 시간 이동
+      audioRef.current.currentTime = newTime;
+      setCurrentTime(newTime);
+      setIsDragging(false);
+
+      if (willPlay) {
+        await new Promise(r => setTimeout(r, 100)); // 4. 새 구간 데이터 로딩 대기
+        
+        audioRef.current.volume = 0; // 5. 브라우저가 몰래 올렸을 볼륨을 0으로 꽉 밟음
+        await audioRef.current.play(); // 6. 무음 상태로 재생 시작
+        setIsPlaying(true);
+        
+        if (!isMuted) {
+          await doFade(1, 200); // 7. 부드럽게 페이드 인 (시간을 살짝 길게 주어 더 자연스럽게)
+        }
+      }
+    } catch (e) {
+      setIsPlaying(false);
+    } finally {
+      isSeekingRef.current = false; // 작업 완료 후 자물쇠 해제
+    }
+  };
+
   const togglePlay = async (e) => {
     if (e) { e.preventDefault(); e.stopPropagation(); }
-    if (!audioRef.current) return;
-    
-    if (isPlaying) {
-      // 1. 소리가 0이 될 때까지 기다림
-      await doFade(0, 150);
-      audioRef.current.pause();
+    if (!audioRef.current || isSeekingRef.current) return;
+    isSeekingRef.current = true;
+
+    try {
+      if (isPlaying) {
+        await doFade(0, 150);
+        audioRef.current.pause();
+        setIsPlaying(false);
+      } else {
+        audioRef.current.volume = 0;
+        await audioRef.current.play();
+        setIsPlaying(true);
+        if (!isMuted) await doFade(1, 200);
+      }
+    } catch (e) {
       setIsPlaying(false);
-    } else {
-      audioRef.current.volume = 0;
-      await audioRef.current.play();
-      setIsPlaying(true);
-      // 2. 재생 시작 후 소리가 커짐
-      await doFade(volume, 150);
+    } finally {
+      isSeekingRef.current = false;
+    }
+  };
+
+  const toggleMute = () => {
+    if (audioRef.current) {
+      audioRef.current.muted = !isMuted;
+      setIsMuted(!isMuted);
     }
   };
 
@@ -112,52 +156,37 @@ export default function AlbumPage() {
     setCurrentTime(pos * duration);
   };
 
-  const handlePointerUp = async (e) => {
+  const handlePointerUp = (e) => {
     e.currentTarget.releasePointerCapture(e.pointerId);
     const rect = progressBarRef.current.getBoundingClientRect();
     const pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
     const newTime = pos * duration;
-
-    if (isPlaying) {
-      await doFade(0, 150); // 페이드 아웃 완료 대기
-      audioRef.current.currentTime = newTime;
-      setCurrentTime(newTime);
-      setIsDragging(false);
-      
-      // 시간 이동 후 퍽 소리가 나지 않게 브라우저에 0.05초 여유를 줌
-      await new Promise(r => setTimeout(r, 50)); 
-      
-      await doFade(volume, 150); // 다시 페이드 인
-    } else {
-      audioRef.current.currentTime = newTime;
-      setCurrentTime(newTime);
-      setIsDragging(false);
-    }
+    
+    // 드래그를 놓는 순간 중앙 통제 함수 호출
+    executeSeek(newTime, false);
   };
 
-  const seekTo = async (time) => {
-    if (!audioRef.current) return;
-    
-    if (isPlaying) {
-      await doFade(0, 150);
-      audioRef.current.currentTime = time;
-      await new Promise(r => setTimeout(r, 50));
-      await doFade(volume, 150);
-    } else {
-      audioRef.current.currentTime = time;
-      audioRef.current.volume = 0;
-      await audioRef.current.play();
-      setIsPlaying(true);
-      await doFade(volume, 150);
-    }
+  const seekTo = (time) => {
+    // 가사를 누르는 순간 재생을 강제하며 중앙 통제 함수 호출
+    executeSeek(time, true);
   };
 
   const changeTrack = async (direction) => {
-    if (isPlaying) await doFade(0, 150);
-    if (direction === 'next') {
-      setCurrentTrack(prev => (prev < 7 ? prev + 1 : 1));
-    } else {
-      setCurrentTrack(prev => (prev > 1 ? prev - 1 : 7));
+    if (isSeekingRef.current) return;
+    isSeekingRef.current = true;
+
+    try {
+      if (isPlaying) {
+        await doFade(0, 150);
+        audioRef.current.pause();
+      }
+      if (direction === 'next') {
+        setCurrentTrack(prev => (prev < 7 ? prev + 1 : 1));
+      } else {
+        setCurrentTrack(prev => (prev > 1 ? prev - 1 : 7));
+      }
+    } finally {
+      isSeekingRef.current = false;
     }
   };
 
@@ -169,36 +198,18 @@ export default function AlbumPage() {
   };
 
   useEffect(() => {
-    if (audioRef.current && isPlaying) {
-      audioRef.current.volume = volume;
+    if (!isDragging) {
+      const lyrics = trackList[currentTrack - 1].가사데이터;
+      const index = lyrics.findLastIndex(lyric => lyric.시간 <= currentTime);
+      if (index !== -1 && index !== activeLyricIndex) setActiveLyricIndex(index);
     }
-  }, [volume, isPlaying]);
+  }, [currentTime, currentTrack, isDragging]);
 
   useEffect(() => {
-    const lyrics = trackList[currentTrack - 1].가사데이터;
-    const index = lyrics.findLastIndex(lyric => lyric.시간 <= currentTime);
-    if (index !== -1 && index !== activeLyricIndex) setActiveLyricIndex(index);
-  }, [currentTime, currentTrack]);
-
-  useEffect(() => {
-    if (isAutoScroll && lyricRefs.current[activeLyricIndex]) {
+    if (isAutoScroll && lyricRefs.current[activeLyricIndex] && !isDragging) {
       lyricRefs.current[activeLyricIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
-  }, [activeLyricIndex, isAutoScroll]);
-
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (volumeRef.current && !volumeRef.current.contains(e.target)) {
-        setShowVolume(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    document.addEventListener('touchstart', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('touchstart', handleClickOutside);
-    };
-  }, []);
+  }, [activeLyricIndex, isAutoScroll, isDragging]);
 
   useEffect(() => {
     if (audioRef.current) {
@@ -206,14 +217,13 @@ export default function AlbumPage() {
       audioRef.current.load();
       setCurrentTime(0);
       setActiveLyricIndex(0);
+      audioRef.current.muted = isMuted;
       
       if (isPlaying) {
         audioRef.current.volume = 0;
         audioRef.current.play().then(() => {
-          doFade(volume, 200);
+          doFade(1, 200);
         }).catch(() => setIsPlaying(false));
-      } else {
-        audioRef.current.volume = volume;
       }
     }
   }, [currentTrack]);
@@ -265,9 +275,9 @@ export default function AlbumPage() {
                 <div 
                   key={index} ref={el => lyricRefs.current[index] = el}
                   onClick={() => seekTo(lyric.시간)}
-                  className={`transition-all duration-500 text-center py-2 cursor-pointer touch-none ${
+                  className={`transition-all duration-500 text-center py-2 cursor-pointer ${
                     !isAutoScroll ? 'text-white opacity-100 select-text' : 
-                    activeLyricIndex === index ? 'text-white text-xl font-bold scale-110 opacity-100' : 'text-gray-600 opacity-30 scale-100'
+                    activeLyricIndex === index ? 'text-white text-xl font-bold scale-110 opacity-100 select-none' : 'text-gray-600 opacity-30 scale-100 select-none'
                   }`}
                 >
                   {lyric.내용}
@@ -282,13 +292,10 @@ export default function AlbumPage() {
         <div className="p-10 text-center text-gray-500 font-light">작업 비하인드가 곧 업데이트됩니다.</div>
       )}
 
-      {/* 숨김 높이를 48px 버튼 크기만큼 뺀 값으로 계산하여 자연스럽게 일체화시켰습니다 */}
       <div className={`fixed bottom-0 left-0 right-0 z-50 flex justify-center pointer-events-none transition-transform duration-500 ease-in-out ${isMinimized ? 'translate-y-[calc(100%-48px)]' : 'translate-y-0'}`}>
         
-        {/* 플레이어 본체를 둥글게 묶고 안쪽에 버튼을 배치 */}
         <div className="w-full max-w-md bg-gray-900/95 border border-gray-700 rounded-t-3xl shadow-[0_-10px_30px_rgba(0,0,0,0.5)] backdrop-blur-xl pointer-events-auto flex flex-col px-4 pb-8">
           
-          {/* 안으로 쏙 들어간 깔끔한 형태의 일체형 닫기/열기 버튼 */}
           <div 
             onClick={() => setIsMinimized(!isMinimized)} 
             className="w-full h-12 flex items-center justify-center cursor-pointer active:opacity-50"
@@ -304,7 +311,6 @@ export default function AlbumPage() {
             )}
           </div>
 
-          {/* 내부 플레이어 제어 요소들 */}
           <div>
             <div className="flex items-center justify-between mb-4 px-2">
               <button onClick={() => changeTrack('prev')} className="p-2 text-gray-400 active:scale-90 transition-transform">
@@ -332,7 +338,7 @@ export default function AlbumPage() {
                   onPointerMove={(e) => isDragging && handleDrag(e)}
                   onPointerUp={handlePointerUp}
                   onPointerCancel={handlePointerUp}
-                  className="h-6 flex items-center cursor-pointer relative -my-1"
+                  className="h-6 flex items-center cursor-pointer relative -my-1 touch-none"
                 >
                   <div className="h-1.5 bg-gray-700 w-full rounded-full pointer-events-none">
                     <div className="h-full bg-yellow-400 rounded-full" style={{ width: (duration ? (currentTime / duration * 100) : 0) + '%' }}></div>
@@ -348,20 +354,14 @@ export default function AlbumPage() {
                 </div>
               </div>
 
-              <div className="relative flex items-center" ref={volumeRef}>
-                <button onClick={() => setShowVolume(!showVolume)} className="p-3 text-gray-400 active:text-white transition-colors">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>
+              <div className="relative flex items-center pl-2">
+                <button onClick={toggleMute} className="p-2 text-gray-400 active:text-white transition-colors">
+                  {isMuted ? (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>
+                  ) : (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>
+                  )}
                 </button>
-                {showVolume && (
-                  <div className="absolute bottom-14 right-[-4px] bg-gray-800/95 p-4 rounded-full border border-gray-700 h-36 w-10 flex flex-col justify-center items-center shadow-2xl z-50 backdrop-blur-sm">
-                    <input 
-                      type="range" min="0" max="1" step="0.01" value={volume} 
-                      onChange={(e) => setVolume(parseFloat(e.target.value))} 
-                      style={{ WebkitAppearance: 'slider-vertical', height: '110px', width: '20px' }} 
-                      className="accent-yellow-400 cursor-pointer opacity-80" 
-                    />
-                  </div>
-                )}
               </div>
             </div>
           </div>

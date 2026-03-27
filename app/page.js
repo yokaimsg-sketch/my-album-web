@@ -21,7 +21,6 @@ export default function AlbumPage() {
   const lyricContainerRef = useRef(null); 
   const lyricRefs = useRef([]);
   
-  // 페이드 애니메이션과 재생 조작 겹침을 막기 위한 안전장치
   const fadeAnimationRef = useRef(null);
   const isSeekingRef = useRef(false); 
 
@@ -55,6 +54,13 @@ export default function AlbumPage() {
 
       const startVolume = audioRef.current.volume;
       const volumeDiff = targetVolume - startVolume;
+      
+      // 최적화: 이미 목표 볼륨에 도달해 있다면 즉시 종료 (딜레이 방지)
+      if (Math.abs(volumeDiff) < 0.01) {
+        audioRef.current.volume = targetVolume;
+        return resolve();
+      }
+
       const startTime = performance.now();
 
       const animate = (time) => {
@@ -75,40 +81,53 @@ export default function AlbumPage() {
     });
   };
 
-  // 모든 시간 이동 로직을 통제하는 중앙 함수 (팝 노이즈 원천 차단)
   const executeSeek = async (newTime, forcePlay = false) => {
-    // 이미 이동 중이거나 페이드 중이면 중복 실행 방지
     if (!audioRef.current || isSeekingRef.current) return;
     isSeekingRef.current = true;
 
-    const willPlay = isPlaying || forcePlay;
+    const wasPlaying = isPlaying;
+    const willPlay = wasPlaying || forcePlay;
 
     try {
-      if (isPlaying) {
-        await doFade(0, 150); // 1. 부드럽게 볼륨 0으로 아웃
-        audioRef.current.pause(); // 2. 엔진을 멈춰서 끊기는 소리 방지
+      if (wasPlaying) {
+        await doFade(0, 150); 
       }
 
-      // 3. 엔진이 정지된 조용한 상태에서 시간 이동
+      // === 팝 노이즈 완전 차단: 하드웨어 단 음소거 ===
+      audioRef.current.muted = true;
+
+      if (wasPlaying) {
+        audioRef.current.pause(); 
+      }
+
       audioRef.current.currentTime = newTime;
       setCurrentTime(newTime);
       setIsDragging(false);
 
       if (willPlay) {
-        await new Promise(r => setTimeout(r, 100)); // 4. 새 구간 데이터 로딩 대기
+        await new Promise(r => setTimeout(r, 80)); 
         
-        audioRef.current.volume = 0; // 5. 브라우저가 몰래 올렸을 볼륨을 0으로 꽉 밟음
-        await audioRef.current.play(); // 6. 무음 상태로 재생 시작
+        audioRef.current.volume = 0; 
+        await audioRef.current.play();
         setIsPlaying(true);
         
+        // 재생 시작 후 파형이 안정을 찾을 때까지 0.05초 대기
+        await new Promise(r => setTimeout(r, 50));
+        
+        // 원래 사용자가 설정한 Mute 상태로 복귀 후 페이드 인
+        audioRef.current.muted = isMuted; 
+        
         if (!isMuted) {
-          await doFade(1, 200); // 7. 부드럽게 페이드 인 (시간을 살짝 길게 주어 더 자연스럽게)
+          await doFade(1, 200); 
         }
+      } else {
+        audioRef.current.muted = isMuted;
       }
     } catch (e) {
       setIsPlaying(false);
+      if (audioRef.current) audioRef.current.muted = isMuted;
     } finally {
-      isSeekingRef.current = false; // 작업 완료 후 자물쇠 해제
+      isSeekingRef.current = false; 
     }
   };
 
@@ -162,12 +181,10 @@ export default function AlbumPage() {
     const pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
     const newTime = pos * duration;
     
-    // 드래그를 놓는 순간 중앙 통제 함수 호출
     executeSeek(newTime, false);
   };
 
   const seekTo = (time) => {
-    // 가사를 누르는 순간 재생을 강제하며 중앙 통제 함수 호출
     executeSeek(time, true);
   };
 
@@ -270,12 +287,12 @@ export default function AlbumPage() {
               </button>
             </div>
 
-            <div ref={lyricContainerRef} className="w-full h-80 overflow-y-auto space-y-6 px-2 scrollbar-hide py-32">
+            <div ref={lyricContainerRef} className="w-full h-80 overflow-y-auto overflow-x-hidden space-y-6 px-2 scrollbar-hide py-32">
               {trackList[currentTrack - 1].가사데이터.map((lyric, index) => (
                 <div 
                   key={index} ref={el => lyricRefs.current[index] = el}
                   onClick={() => seekTo(lyric.시간)}
-                  className={`transition-all duration-500 text-center py-2 cursor-pointer ${
+                  className={`transition-all duration-500 text-center py-2 cursor-pointer break-words ${
                     !isAutoScroll ? 'text-white opacity-100 select-text' : 
                     activeLyricIndex === index ? 'text-white text-xl font-bold scale-110 opacity-100 select-none' : 'text-gray-600 opacity-30 scale-100 select-none'
                   }`}
@@ -293,7 +310,6 @@ export default function AlbumPage() {
       )}
 
       <div className={`fixed bottom-0 left-0 right-0 z-50 flex justify-center pointer-events-none transition-transform duration-500 ease-in-out ${isMinimized ? 'translate-y-[calc(100%-48px)]' : 'translate-y-0'}`}>
-        
         <div className="w-full max-w-md bg-gray-900/95 border border-gray-700 rounded-t-3xl shadow-[0_-10px_30px_rgba(0,0,0,0.5)] backdrop-blur-xl pointer-events-auto flex flex-col px-4 pb-8">
           
           <div 

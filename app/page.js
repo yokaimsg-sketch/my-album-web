@@ -24,6 +24,7 @@ export default function AlbumPage() {
   const fadeAnimationRef = useRef(null);
   const isSeekingRef = useRef(false); 
 
+  // 💡 나중에 R2에 파일을 올리면 아래 음원 경로를 "https://r2-주소.../track1.wav" 로 바꾸기만 하면 됩니다!
   const trackList = [
     { 
       번호: 1, 제목: "타이틀곡 제목", 
@@ -37,14 +38,14 @@ export default function AlbumPage() {
         { 시간: 18, 내용: "일곱 번째 줄 (18초)" },
         { 시간: 21, 내용: "마지막 테스트 문구입니다 (21초)" },
       ],
-      음원: "/track1.wav" 
+      음원: "https://pub-eb7063c1256b42148f33d95d25411e8c.r2.dev/track1.wav" 
     },
-    { 번호: 2, 제목: "수록곡 2", 가사데이터: [{ 시간: 0, 내용: "준비 중..." }], 음원: "/track2.wav" },
-    { 번호: 3, 제목: "수록곡 3", 가사데이터: [{ 시간: 0, 내용: "준비 중..." }], 음원: "/track3.wav" },
-    { 번호: 4, 제목: "수록곡 4", 가사데이터: [{ 시간: 0, 내용: "준비 중..." }], 음원: "/track4.wav" },
-    { 번호: 5, 제목: "수록곡 5", 가사데이터: [{ 시간: 0, 내용: "준비 중..." }], 음원: "/track5.wav" },
-    { 번호: 6, 제목: "수록곡 6", 가사데이터: [{ 시간: 0, 내용: "준비 중..." }], 음원: "/track6.wav" },
-    { 번호: 7, 제목: "수록곡 7", 가사데이터: [{ 시간: 0, 내용: "준비 중..." }], 음원: "/track7.wav" },
+    { 번호: 2, 제목: "수록곡 2", 가사데이터: [{ 시간: 0, 내용: "준비 중..." }], 음원: "https://pub-eb7063c1256b42148f33d95d25411e8c.r2.dev/track2.wav" },
+    { 번호: 3, 제목: "수록곡 3", 가사데이터: [{ 시간: 0, 내용: "준비 중..." }], 음원: "https://pub-eb7063c1256b42148f33d95d25411e8c.r2.dev/track3.wav" },
+    { 번호: 4, 제목: "수록곡 4", 가사데이터: [{ 시간: 0, 내용: "준비 중..." }], 음원: "https://pub-eb7063c1256b42148f33d95d25411e8c.r2.dev/track4.wav" },
+    { 번호: 5, 제목: "수록곡 5", 가사데이터: [{ 시간: 0, 내용: "준비 중..." }], 음원: "https://pub-eb7063c1256b42148f33d95d25411e8c.r2.dev/track5.wav" },
+    { 번호: 6, 제목: "수록곡 6", 가사데이터: [{ 시간: 0, 내용: "준비 중..." }], 음원: "https://pub-eb7063c1256b42148f33d95d25411e8c.r2.dev/track6.wav" },
+    { 번호: 7, 제목: "수록곡 7", 가사데이터: [{ 시간: 0, 내용: "준비 중..." }], 음원: "https://pub-eb7063c1256b42148f33d95d25411e8c.r2.dev/track7.wav" },
   ];
 
   const doFade = (targetVolume, durationMs = 150) => {
@@ -55,7 +56,6 @@ export default function AlbumPage() {
       const startVolume = audioRef.current.volume;
       const volumeDiff = targetVolume - startVolume;
       
-      // 최적화: 이미 목표 볼륨에 도달해 있다면 즉시 종료 (딜레이 방지)
       if (Math.abs(volumeDiff) < 0.01) {
         audioRef.current.volume = targetVolume;
         return resolve();
@@ -93,7 +93,6 @@ export default function AlbumPage() {
         await doFade(0, 150); 
       }
 
-      // === 팝 노이즈 완전 차단: 하드웨어 단 음소거 ===
       audioRef.current.muted = true;
 
       if (wasPlaying) {
@@ -111,10 +110,8 @@ export default function AlbumPage() {
         await audioRef.current.play();
         setIsPlaying(true);
         
-        // 재생 시작 후 파형이 안정을 찾을 때까지 0.05초 대기
         await new Promise(r => setTimeout(r, 50));
         
-        // 원래 사용자가 설정한 Mute 상태로 복귀 후 페이드 인
         audioRef.current.muted = isMuted; 
         
         if (!isMuted) {
@@ -247,9 +244,11 @@ export default function AlbumPage() {
 
   return (
     <div className="min-h-screen bg-black text-white pb-48 font-sans overflow-x-hidden">
+      {/* 💡 여기에 crossOrigin="anonymous" 속성이 추가되었습니다! */}
       <audio 
         ref={audioRef} 
         src={trackList[currentTrack - 1].음원}
+        crossOrigin="anonymous" 
         onLoadedMetadata={(e) => setDuration(e.target.duration)}
         onTimeUpdate={() => !isDragging && setCurrentTime(audioRef.current.currentTime)}
         onEnded={() => changeTrack('next')}

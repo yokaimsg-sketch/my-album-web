@@ -2,23 +2,23 @@
 
 import { useState, useRef, useEffect } from 'react';
 
-// 💡 [보안 장부] 해시 생성기 결과값을 여기에 붙여넣으세요.
+// 💡 파트너님이 직접 생성하신 완벽한 보안 장부입니다.
 const BUYER_DATA = {
   "1": {
-  token: "a7b2c9d1",
-  hash: "9b6f1058ccfff726689e4121ff81cd5d7d3e8f4fd107a744f29ad324f0618585", // 원래 PIN: 123456
-  number: 1
-},
-"2": {
-  token: "e4f8g2h1",
-  hash: "22da12750f7ee23d75fd8f677fe454ae00cd30d0553d16975f75fd7377932e0c", // 원래 PIN: 654321
-  number: 2
-},
-"3": {
-  token: "m5n9p2r4",
-  hash: "b0fb5eccfaead16265444efb5abc00a25040df61dc3ab9d50f49fbc081d474ee", // 원래 PIN: 111111
-  number: 3
-},
+    token: "a7b2c9d1",
+    hash: "9b6f1058ccfff726689e4121ff81cd5d7d3e8f4fd107a744f29ad324f0618585", // 원래 PIN: 123456
+    number: 1
+  },
+  "2": {
+    token: "e4f8g2h1",
+    hash: "22da12750f7ee23d75fd8f677fe454ae00cd30d0553d16975f75fd7377932e0c", // 원래 PIN: 654321
+    number: 2
+  },
+  "3": {
+    token: "m5n9p2r4",
+    hash: "b0fb5eccfaead16265444efb5abc00a25040df61dc3ab9d50f49fbc081d474ee", // 원래 PIN: 111111
+    number: 3
+  }
 };
 
 export default function AlbumPage() {
@@ -51,26 +51,26 @@ export default function AlbumPage() {
   const fadeAnimationRef = useRef(null);
   const isSeekingRef = useRef(false); 
 
-  // 💡 가사 데이터 완벽 복구 (Pro;logue 감성에 맞춘 30초 분량 테스트 가사)
+  // --- 곡 정보 데이터 ---
   const trackList = [
     { 
       번호: 1, 제목: "타이틀곡 제목", 
       가사데이터: [
-        { 시간: 0, 내용: "Pro;logue의 첫 페이지를 엽니다 (0초)" },
+        { 시간: 0, 내용: "Pro;logue : The First의 첫 페이지를 엽니다 (0초)" },
         { 시간: 3, 내용: "여기서부터 우리의 이야기가 시작돼 (3초)" },
         { 시간: 6, 내용: "오래 기다려준 너를 위한 노래 (6초)" },
         { 시간: 9, 내용: "조금씩 선명해지는 멜로디 (9초)" },
         { 시간: 12, 내용: "시간이 흘러도 변치 않을 (12초)" },
         { 시간: 15, 내용: "비밀스러운 이 공간 안에서 (15초)" },
         { 시간: 18, 내용: "오직 너에게만 들려줄게 (18초)" },
-        { 시간: 21, 내용: "이건 너와 나만의 Pro;logue (21초)" },
+        { 시간: 21, 내용: "이건 너와 나만의 Pro;logue : The First (21초)" },
         { 시간: 24, 내용: "가사 트래킹이 완벽하게 작동합니다 (24초)" },
         { 시간: 27, 내용: "화면이 부드럽게 스크롤됩니다 (27초)" },
         { 시간: 30, 내용: "마지막 테스트 줄입니다 (30초)" },
       ],
       음원: "https://pub-eb7063c1256b42148f33d95d25411e8c.r2.dev/track1.wav" 
     },
-    { 번호: 2, 제목: "수록곡 2", 가사데이터: [{ 시간: 0, 내용: "준비 중..." }], 음원: "https://pub-eb7063c1256b42148f33d95d25411e8c.r2.dev/track2.wav" },
+    { 번호: 2, 제목: "수록곡 2", 가사데이터: [{ 시간: 0, 내용: "두 번째 트랙 가사입니다." }], 음원: "https://pub-eb7063c1256b42148f33d95d25411e8c.r2.dev/track2.wav" },
     { 번호: 3, 제목: "수록곡 3", 가사데이터: [{ 시간: 0, 내용: "준비 중..." }], 음원: "https://pub-eb7063c1256b42148f33d95d25411e8c.r2.dev/track3.wav" },
     { 번호: 4, 제목: "수록곡 4", 가사데이터: [{ 시간: 0, 내용: "준비 중..." }], 음원: "https://pub-eb7063c1256b42148f33d95d25411e8c.r2.dev/track4.wav" },
     { 번호: 5, 제목: "수록곡 5", 가사데이터: [{ 시간: 0, 내용: "준비 중..." }], 음원: "https://pub-eb7063c1256b42148f33d95d25411e8c.r2.dev/track5.wav" },
@@ -125,7 +125,7 @@ export default function AlbumPage() {
     }
   }, [viewState]);
 
-  // --- [오디오 엔진] ---
+  // --- [오디오 엔진] 페이드 제어 ---
   const doFade = (targetVolume, durationMs = 150) => {
     return new Promise(resolve => {
       if (!audioRef.current) return resolve();
@@ -228,6 +228,31 @@ export default function AlbumPage() {
     }
   };
 
+  // --- 곡 변경 시 자동 이어서 재생 엔진 ---
+  useEffect(() => {
+    if (audioRef.current && viewState === 'main') {
+      audioRef.current.pause();
+      audioRef.current.load();
+      setCurrentTime(0);
+      setActiveLyricIndex(0);
+      audioRef.current.muted = isMuted;
+
+      if (isPlaying) {
+        audioRef.current.volume = 0;
+        const playPromise = audioRef.current.play();
+        if (playPromise !== undefined) {
+          playPromise.then(() => {
+            doFade(1, 200); 
+          }).catch((error) => {
+            console.error("오토플레이 방지됨:", error);
+            setIsPlaying(false);
+          });
+        }
+      }
+    }
+  }, [currentTrack]); 
+
+  // --- [컨트롤 슬라이더 로직] ---
   const handlePointerDown = (e) => {
     e.currentTarget.setPointerCapture(e.pointerId);
     setIsDragging(true);
@@ -294,9 +319,15 @@ export default function AlbumPage() {
 
       {/* 1. 로그인 화면 */}
       {viewState === 'login' && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black z-50 px-6">
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black z-50 px-4">
           <div className="max-w-sm w-full space-y-10 text-center animate-fade-in-up">
-            <h1 className="text-4xl font-bold tracking-[0.3em] text-yellow-400">PRO;LOGUE</h1>
+            
+            {/* 💡 변경점 1: 대소문자 유지 및 명시적인 줄바꿈 적용 */}
+            <h1 className="text-4xl font-bold tracking-[0.1em] text-yellow-400 leading-tight">
+              Pro;logue :<br />
+              The First
+            </h1>
+            
             <div className="space-y-2">
               <p className="text-gray-500 text-xs tracking-widest uppercase">Digital Experience</p>
               <p className="text-yellow-400/40 text-[10px] tracking-widest font-mono uppercase">Buyer No. {buyerInfo?.number}</p>
@@ -331,8 +362,10 @@ export default function AlbumPage() {
 
           {currentTab === '메인' && (
             <div className="p-4 max-w-xl mx-auto space-y-8 mt-4">
-              <div className="bg-yellow-500/5 border border-yellow-500/20 text-yellow-400/80 text-[10px] text-center py-2.5 rounded-full tracking-[0.2em] uppercase font-mono">
-                Authorized Listening No.{buyerInfo?.number}
+              
+              {/* 💡 변경점 2: 상단 배지를 깔끔하게 Pro;logue로 변경 */}
+              <div className="bg-yellow-500/5 border border-yellow-500/20 text-yellow-400/80 text-xs text-center py-2.5 rounded-full tracking-widest">
+                NO.{buyerInfo?.number} 구매자님을 위한 Pro;logue
               </div>
 
               <div className="bg-gray-950/50 rounded-3xl border border-gray-900 overflow-hidden shadow-inner">

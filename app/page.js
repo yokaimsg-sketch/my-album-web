@@ -49,6 +49,7 @@ export default function AlbumPage() {
   const lyricContainerRef = useRef(null); 
   const lyricRefs = useRef([]);
   const fadeAnimationRef = useRef(null);
+  const activeFadeResolve = useRef(null); 
   const isSeekingRef = useRef(false); 
 
   // --- 곡 정보 데이터 ---
@@ -130,22 +131,30 @@ export default function AlbumPage() {
     return new Promise(resolve => {
       if (!audioRef.current) return resolve();
       if (fadeAnimationRef.current) cancelAnimationFrame(fadeAnimationRef.current);
+      if (activeFadeResolve.current) activeFadeResolve.current(); 
+
+      activeFadeResolve.current = resolve;
       const startVolume = audioRef.current.volume;
       const volumeDiff = targetVolume - startVolume;
+
       if (Math.abs(volumeDiff) < 0.01) {
         audioRef.current.volume = targetVolume;
+        activeFadeResolve.current = null;
         return resolve();
       }
+
       const startTime = performance.now();
       const animate = (time) => {
         const elapsed = time - startTime;
         const progress = Math.min(elapsed / durationMs, 1);
         audioRef.current.volume = Math.max(0, Math.min(1, startVolume + (volumeDiff * progress)));
+        
         if (progress < 1) {
           fadeAnimationRef.current = requestAnimationFrame(animate);
         } else {
           audioRef.current.volume = Math.max(0, Math.min(1, targetVolume));
           fadeAnimationRef.current = null;
+          activeFadeResolve.current = null;
           resolve();
         }
       };
@@ -172,7 +181,10 @@ export default function AlbumPage() {
         setIsPlaying(true);
         await new Promise(r => setTimeout(r, 50));
         audioRef.current.muted = isMuted;
-        if (!isMuted) await doFade(1, 200);
+        if (!isMuted) {
+          await doFade(1, 200);
+          if (audioRef.current) audioRef.current.volume = 1; 
+        }
       } else {
         audioRef.current.muted = isMuted;
       }
@@ -197,10 +209,15 @@ export default function AlbumPage() {
         audioRef.current.volume = 0;
         await audioRef.current.play();
         setIsPlaying(true);
-        if (!isMuted) await doFade(1, 200);
+        if (!isMuted) {
+          await doFade(1, 200);
+          if (audioRef.current) audioRef.current.volume = 1; 
+        }
       }
     } catch (e) {
+      console.error("Playback error:", e);
       setIsPlaying(false);
+      if (audioRef.current) audioRef.current.volume = 1; 
     } finally {
       isSeekingRef.current = false;
     }
@@ -242,7 +259,9 @@ export default function AlbumPage() {
         const playPromise = audioRef.current.play();
         if (playPromise !== undefined) {
           playPromise.then(() => {
-            doFade(1, 200); 
+            doFade(1, 200).then(() => {
+              if (audioRef.current && !isMuted) audioRef.current.volume = 1;
+            }); 
           }).catch((error) => {
             console.error("오토플레이 방지됨:", error);
             setIsPlaying(false);
@@ -321,13 +340,10 @@ export default function AlbumPage() {
       {viewState === 'login' && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-black z-50 px-4">
           <div className="max-w-sm w-full space-y-10 text-center animate-fade-in-up">
-            
-            {/* 💡 변경점 1: 대소문자 유지 및 명시적인 줄바꿈 적용 */}
             <h1 className="text-4xl font-bold tracking-[0.1em] text-yellow-400 leading-tight">
               Pro;logue :<br />
               The First
             </h1>
-            
             <div className="space-y-2">
               <p className="text-gray-500 text-xs tracking-widest uppercase">Digital Experience</p>
               <p className="text-yellow-400/40 text-[10px] tracking-widest font-mono uppercase">Buyer No. {buyerInfo?.number}</p>
@@ -363,7 +379,6 @@ export default function AlbumPage() {
           {currentTab === '메인' && (
             <div className="p-4 max-w-xl mx-auto space-y-8 mt-4">
               
-              {/* 💡 변경점 2: 상단 배지를 깔끔하게 Pro;logue로 변경 */}
               <div className="bg-yellow-500/5 border border-yellow-500/20 text-yellow-400/80 text-xs text-center py-2.5 rounded-full tracking-widest">
                 NO.{buyerInfo?.number} 구매자님을 위한 Pro;logue
               </div>
@@ -393,7 +408,17 @@ export default function AlbumPage() {
                 </div>
                 <div ref={lyricContainerRef} className="w-full h-80 overflow-y-auto overflow-x-hidden space-y-8 px-2 scrollbar-hide py-40">
                   {trackList[currentTrack - 1].가사데이터.map((lyric, index) => (
-                    <div key={index} ref={el => lyricRefs.current[index] = el} onClick={() => seekTo(lyric.시간)} className={`transition-all duration-700 text-center py-2 cursor-pointer break-words leading-relaxed ${activeLyricIndex === index ? 'text-white text-xl font-bold scale-110 opacity-100' : 'text-gray-700 opacity-20 scale-100'}`}>
+                    <div 
+                      key={index} 
+                      ref={el => lyricRefs.current[index] = el} 
+                      onClick={() => seekTo(lyric.시간)} 
+                      // 💡 변경점: AUTO OFF 일 때 전체 가사 선명하게 표시 + 활성 가사 노란색 강조
+                      className={`transition-all duration-700 text-center py-2 cursor-pointer break-words leading-relaxed ${
+                        !isAutoScroll 
+                          ? (activeLyricIndex === index ? 'text-yellow-400 font-bold opacity-100' : 'text-gray-300 opacity-100 hover:text-white')
+                          : (activeLyricIndex === index ? 'text-white text-xl font-bold scale-110 opacity-100' : 'text-gray-700 opacity-20 scale-100')
+                      }`}
+                    >
                       {lyric.내용}
                     </div>
                   ))}

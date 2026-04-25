@@ -52,22 +52,47 @@ export default function AlbumPage() {
   const activeFadeResolve = useRef(null); 
   const isSeekingRef = useRef(false); 
 
-  // --- 곡 정보 데이터 ---
+  // --- 곡 정보 데이터 (제공해주신 NONB 트랙 반영) ---
   const trackList = [
     { 
-      번호: 1, 제목: "타이틀곡 제목", 
+      번호: 1, 제목: "NONB - Fly again!", 
       가사데이터: [
-        { 시간: 0, 내용: "Pro;logue : The First의 첫 페이지를 엽니다 (0초)" },
-        { 시간: 3, 내용: "여기서부터 우리의 이야기가 시작돼 (3초)" },
-        { 시간: 6, 내용: "오래 기다려준 너를 위한 노래 (6초)" },
-        { 시간: 9, 내용: "조금씩 선명해지는 멜로디 (9초)" },
-        { 시간: 12, 내용: "시간이 흘러도 변치 않을 (12초)" },
-        { 시간: 15, 내용: "비밀스러운 이 공간 안에서 (15초)" },
-        { 시간: 18, 내용: "오직 너에게만 들려줄게 (18초)" },
-        { 시간: 21, 내용: "이건 너와 나만의 Pro;logue : The First (21초)" },
-        { 시간: 24, 내용: "가사 트래킹이 완벽하게 작동합니다 (24초)" },
-        { 시간: 27, 내용: "화면이 부드럽게 스크롤됩니다 (27초)" },
-        { 시간: 30, 내용: "마지막 테스트 줄입니다 (30초)" },
+        { 시간: 28, 내용: "꿈속 만난 나의 모습" },
+        { 시간: 34.5, 내용: "그 모습이 아른거려" },
+        { 시간: 41, 내용: "끝이 없는 반복들이" },
+        { 시간: 47.5, 내용: "나에게 또 소리쳐와" },
+        { 시간: 54.5, 내용: "난 왜 흘러가는 시간 속에서" },
+        { 시간: 61, 내용: "되돌아보는 날들만이 늘어날까" },
+        { 시간: 67.5, 내용: "아직 늦지 않았으니까 걱정은 하지 마" },
+        { 시간: 74.5, 내용: "끝까지 선명하게 비춰주고 있으니까" },
+        { 시간: 81, 내용: "눈 감으면 저 멀리 펼쳐지는 하늘에" },
+        { 시간: 87.5, 내용: "잠깐 동안의 우리 세상으로" },
+        { 시간: 97, 내용: "Fly again!" },
+        { 시간: 103.5, 내용: "Fly again!" },
+        { 시간: 109, 내용: "꿈속 만난 나의 모습" },
+        { 시간: 115.5, 내용: "뒤돌아선" },
+        { 시간: 119, 내용: "모습에 소리쳐봐" },
+        { 시간: 122, 내용: "난 왜 지나가는 시간 속에서" },
+        { 시간: 129, 내용: "후회하는 날들만이 늘어날까" },
+        { 시간: 135, 내용: "아직 늦지 않았으니까 걱정은 하지 마" },
+        { 시간: 142, 내용: "끝까지 선명하게 비춰주고 있으니까" },
+        { 시간: 148.5, 내용: "눈 감으면 저 멀리 펼쳐지는 하늘에" },
+        { 시간: 155, 내용: "잠깐 동안의 우리 세상으로" },
+        { 시간: 161, 내용: "날아가 보는 거야" },
+        { 시간: 164, 내용: "우리 어떤 모습이라도" },
+        { 시간: 168.5, 내용: "결국 함께라면" },
+        { 시간: 171.5, 내용: "끝은 나지 않을 거야" },
+        { 시간: 177, 내용: "아무리 높은 벽이 있어도" },
+        { 시간: 181.5, 내용: "우리 세상으로 날아가" },
+        { 시간: 188.5, 내용: "아직 늦지 않았으니까 걱정은 하지 마" },
+        { 시간: 195, 내용: "이 길의 끝에서 우리 함께 만날 거니까" },
+        { 시간: 201.5, 내용: "눈을 뜨면 그 앞에 펼쳐지는 하늘에" },
+        { 시간: 208, 내용: "끝이 없는 우리 세상으로" },
+        { 시간: 214, 내용: "날아가 보는 거야" },
+        { 시간: 218, 내용: "Fly again!" },
+        { 시간: 224, 내용: "Fly again!" },
+        { 시간: 231, 내용: "Fly again!" },
+        { 시간: 238, 내용: "Fly again!" },
       ],
       음원: "https://pub-eb7063c1256b42148f33d95d25411e8c.r2.dev/track1.wav" 
     },
@@ -406,14 +431,16 @@ export default function AlbumPage() {
                     AUTO
                   </button>
                 </div>
-                <div ref={lyricContainerRef} className="w-full h-80 overflow-y-auto overflow-x-hidden space-y-8 px-2 scrollbar-hide py-40">
+                
+                {/* 💡 변경점: px-6으로 안전 여백 추가 */}
+                <div ref={lyricContainerRef} className="w-full h-80 overflow-y-auto overflow-x-hidden space-y-8 px-6 scrollbar-hide py-40">
                   {trackList[currentTrack - 1].가사데이터.map((lyric, index) => (
                     <div 
                       key={index} 
                       ref={el => lyricRefs.current[index] = el} 
                       onClick={() => seekTo(lyric.시간)} 
-                      // 💡 변경점: AUTO OFF 일 때 전체 가사 선명하게 표시 + 활성 가사 노란색 강조
-                      className={`transition-all duration-700 text-center py-2 cursor-pointer break-words leading-relaxed ${
+                      // 💡 변경점: break-keep(단어유지), whitespace-pre-wrap(\n인식) 적용
+                      className={`transition-all duration-700 text-center py-2 cursor-pointer break-keep whitespace-pre-wrap leading-relaxed ${
                         !isAutoScroll 
                           ? (activeLyricIndex === index ? 'text-yellow-400 font-bold opacity-100' : 'text-gray-300 opacity-100 hover:text-white')
                           : (activeLyricIndex === index ? 'text-white text-xl font-bold scale-110 opacity-100' : 'text-gray-700 opacity-20 scale-100')

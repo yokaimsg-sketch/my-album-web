@@ -3,8 +3,8 @@ const crypto = require('crypto');
 // 💡 여기에 발급할 토큰과 팬에게 알려줄 6자리 PIN을 입력하세요.
 const buyers = [
   { number: 1, token: "a7b2c9d1", pin: "123456" },
-  { number: 2, token: "e4f8g2h1", pin: "654321" },
-  { number: 3, token: "m5n9p2r4", pin: "111111" }
+  { number: 2, token: "e4f8g2h1", pin: "123456" },
+  { number: 3, token: "m5n9p2r4", pin: "123456" }
 ];
 
 console.log("=========================================");

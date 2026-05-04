@@ -54,7 +54,12 @@ export default function AlbumPage() {
   const isSeekingRef = useRef(false); 
   const bgRef = useRef(null);
 
-  // --- 곡 정보 데이터 ---
+  // 💡 [궁극의 해결책] 디지털 믹서 (GainNode) 참조 추가
+  const audioCtxRef = useRef(null);
+  const gainNodeRef = useRef(null);
+  const sourceRef = useRef(null);
+
+  // --- 곡 정보 데이터 (수동 줄바꿈 가사 적용 버전) ---
   const trackList = [
     { 
       번호: 1, 제목: "NONB - Fly again!", 
@@ -150,19 +155,46 @@ export default function AlbumPage() {
     }
   }, [viewState]);
 
-  // --- 오디오 페이드 엔진 ---
+  // 💡 [핵심 최적화] 애플의 볼륨 잠금을 우회하는 디지털 오디오 믹서 초기화
+  const ensureAudioContext = () => {
+    if (!audioCtxRef.current && audioRef.current) {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioCtxRef.current = new AudioContext();
+      
+      // 디지털 볼륨 컨트롤러(GainNode) 생성
+      gainNodeRef.current = audioCtxRef.current.createGain();
+
+      // 오디오 신호를 가로채서 믹서로 보냄
+      sourceRef.current = audioCtxRef.current.createMediaElementSource(audioRef.current);
+      sourceRef.current.connect(gainNodeRef.current);
+      gainNodeRef.current.connect(audioCtxRef.current.destination);
+    }
+    // Safari 모바일 정책상 멈춰있는 Context를 사용자 클릭 시점에 확실하게 깨워줌
+    if (audioCtxRef.current?.state === 'suspended') {
+      audioCtxRef.current.resume();
+    }
+  };
+
+  // 💡 [핵심 버그 수정 1] audio.volume 대신 디지털 믹서(gain.value)로 페이드 제어
   const doFade = (targetVolume, durationMs = 150) => {
     return new Promise(resolve => {
-      if (!audioRef.current) return resolve();
+      // 믹서가 아직 없으면 임시 방편 처리
+      if (!gainNodeRef.current) {
+        if (audioRef.current) audioRef.current.volume = targetVolume;
+        return resolve();
+      }
+
       if (fadeAnimationRef.current) cancelAnimationFrame(fadeAnimationRef.current);
       if (activeFadeResolve.current) activeFadeResolve.current(); 
 
       activeFadeResolve.current = resolve;
-      const startVolume = audioRef.current.volume;
+      
+      // 현재 디지털 믹서의 볼륨 상태를 가져옴
+      const startVolume = gainNodeRef.current.gain.value;
       const volumeDiff = targetVolume - startVolume;
 
       if (Math.abs(volumeDiff) < 0.01) {
-        audioRef.current.volume = targetVolume;
+        gainNodeRef.current.gain.value = targetVolume;
         activeFadeResolve.current = null;
         return resolve();
       }
@@ -172,14 +204,15 @@ export default function AlbumPage() {
         const elapsed = time - startTime;
         const progress = Math.min(elapsed / durationMs, 1);
         
-        if (audioRef.current) {
-            audioRef.current.volume = Math.max(0, Math.min(1, startVolume + (volumeDiff * progress)));
+        // 💡 애플 정책을 완전히 우회하여 디지털 신호 자체의 크기를 조절함 (팝, 에어팟 버그 해결)
+        if (gainNodeRef.current) {
+            gainNodeRef.current.gain.value = Math.max(0, Math.min(1, startVolume + (volumeDiff * progress)));
         }
         
         if (progress < 1) {
           fadeAnimationRef.current = requestAnimationFrame(animate);
         } else {
-          if (audioRef.current) audioRef.current.volume = targetVolume;
+          if (gainNodeRef.current) gainNodeRef.current.gain.value = targetVolume;
           fadeAnimationRef.current = null;
           activeFadeResolve.current = null;
           resolve();
@@ -189,18 +222,15 @@ export default function AlbumPage() {
     });
   };
 
-  // 💡 [궁극의 해결] 스피커 기상 타이밍 동기화 함수
+  // 모바일 스피커가 물리적으로 켜지는 것을 대기하는 동기화 함수
   const waitForSpeakerToWakeUp = () => {
     return new Promise(resolve => {
       if (!audioRef.current) return resolve();
-      
       const onPlaying = () => {
         audioRef.current.removeEventListener('playing', onPlaying);
         resolve();
       };
-      
       audioRef.current.addEventListener('playing', onPlaying);
-      // 만약 브라우저가 이벤트를 씹더라도 무한 대기하지 않도록 300ms 최후의 보루 설정
       setTimeout(() => {
         audioRef.current.removeEventListener('playing', onPlaying);
         resolve();
@@ -218,24 +248,25 @@ export default function AlbumPage() {
 
     try {
       if (wasPlaying) {
-          await doFade(0, 150); // 안전한 페이드 아웃
+          await doFade(0, 150); // 디지털 페이드 아웃
           audioRef.current.pause();
       }
       
-      // 💡 팝 노이즈의 주범이었던 muted = true 완전 제거, 오직 볼륨 0으로만 컨트롤
       audioRef.current.currentTime = newTime;
       setCurrentTime(newTime);
       setIsDragging(false);
       
       if (willPlay) {
-        audioRef.current.volume = 0; // 재생 시작 전 볼륨 완전 차단
+        ensureAudioContext();
+        // 💡 찌꺼기 방지: 디지털 믹서를 0으로 잠가서 찌꺼기 신호를 완벽 차단
+        if (gainNodeRef.current) gainNodeRef.current.gain.value = 0; 
+        
         await audioRef.current.play();
         setIsPlaying(true);
         
-        // 💡 브라우저가 진짜 스피커로 소리를 밀어내기 시작할 때까지 대기
         await waitForSpeakerToWakeUp();
         
-        // 스피커가 깨어난 직후, 진짜 페이드 인 시작
+        // 💡 에어팟이 준비된 후, 디지털 믹서로 확실하게 들리는 400ms 페이드 인
         await doFade(1, 400); 
       }
     } catch (e) {
@@ -256,18 +287,20 @@ export default function AlbumPage() {
         audioRef.current.pause();
         setIsPlaying(false);
       } else {
-        audioRef.current.volume = 0;
+        ensureAudioContext();
+        // 재생 시작 전 디지털 믹서 차단
+        if (gainNodeRef.current) gainNodeRef.current.gain.value = 0;
         await audioRef.current.play();
         setIsPlaying(true);
         
-        // 💡 재생 시작 시에도 동일하게 스피커 동기화
         await waitForSpeakerToWakeUp();
-        await doFade(1, 400); 
+        await doFade(1, 400); // 팝 노이즈 없이 부드러운 페이드 인
       }
     } catch (e) {
       console.error("Playback error:", e);
       setIsPlaying(false);
-      if (audioRef.current) audioRef.current.volume = 1; 
+      // 에러 시 볼륨 복구
+      if (gainNodeRef.current) gainNodeRef.current.gain.value = 1; 
     } finally {
       isSeekingRef.current = false;
     }
@@ -296,11 +329,12 @@ export default function AlbumPage() {
       setActiveLyricIndex(0);
       
       if (isPlaying) {
-        audioRef.current.volume = 0;
+        ensureAudioContext();
+        if (gainNodeRef.current) gainNodeRef.current.gain.value = 0;
         const playPromise = audioRef.current.play();
         if (playPromise !== undefined) {
           playPromise
-            .then(() => waitForSpeakerToWakeUp()) // 💡 자동 이어서 재생 시에도 동기화 적용
+            .then(() => waitForSpeakerToWakeUp()) 
             .then(() => doFade(1, 400))
             .catch((error) => {
               console.error("오토플레이 방지됨:", error);
@@ -349,6 +383,7 @@ export default function AlbumPage() {
       if (index !== -1 && index !== activeLyricIndex) setActiveLyricIndex(index);
     }
   }, [currentTime, currentTrack, isDragging, viewState]);
+  
   useEffect(() => {
     if (isAutoScroll && lyricRefs.current[activeLyricIndex] && !isDragging && viewState === 'main' && showLyrics) {
       lyricRefs.current[activeLyricIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -368,6 +403,7 @@ export default function AlbumPage() {
 
   return (
     <div ref={bgRef} className="min-h-screen text-gray-900 font-sans overflow-x-hidden relative" style={{ background: 'radial-gradient(circle at center, #FFFFFF 0%, #DDE1E5 100%)' }}>
+      {/* 💡 iOS 정책 우회를 위해 crossOrigin="anonymous"가 필수적입니다 (유지) */}
       <audio 
         ref={audioRef} 
         src={trackList[currentTrack - 1].음원} 

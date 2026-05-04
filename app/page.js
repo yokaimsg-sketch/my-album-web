@@ -51,7 +51,7 @@ export default function AlbumPage() {
   const lyricRefs = useRef([]);
   const fadeAnimationRef = useRef(null);
   const activeFadeResolve = useRef(null); 
-  // 💡 구버전의 핵심 방패: 재생/이동 중 연타 방지 락(Lock) 원복
+  // 💡 [초기 안정화 버전 복원 1] 연타 방지 락(Lock) 완벽 복구
   const isSeekingRef = useRef(false); 
 
   // === 오디오 리액티브 & 배경 참조 ===
@@ -218,7 +218,7 @@ export default function AlbumPage() {
     return () => cancelAnimationFrame(animationId);
   }, [isPlaying]);
 
-  // 💡 [초기 안정화 버전 완전 롤백] 오디오 엔진 파트 시작
+  // 💡 [초기 안정화 버전 복원 2] 오디오 엔진 파트 완전 롤백
   const doFade = (targetVolume, durationMs = 150) => {
     return new Promise(resolve => {
       if (!audioRef.current) return resolve();
@@ -255,10 +255,10 @@ export default function AlbumPage() {
   };
 
   const executeSeek = async (newTime, forcePlay = false) => {
-    // 가장 단단했던 오리지널 방어막: 연타 방지
+    // 가장 단단했던 오리지널 방어막 복원: 연타 방지
     if (!audioRef.current || isSeekingRef.current) return;
     
-    // 💡 단 하나의 추가 코드: 로딩 전 가사 클릭 시 앱 멈춤 방지
+    // 💡 단 하나의 안전 코드 추가: 로딩 전 가사 클릭 시 앱 멈춤 방지
     if (audioRef.current.readyState === 0) return;
 
     isSeekingRef.current = true;
@@ -271,15 +271,14 @@ export default function AlbumPage() {
       audioRef.current.currentTime = newTime;
       setCurrentTime(newTime);
       setIsDragging(false);
-      
       if (willPlay) {
-        ensureAudioContext();
-        await new Promise(r => setTimeout(r, 80));
+        ensureAudioContext(); 
+        await new Promise(r => setTimeout(r, 80)); // 💡 구버전 타이머 복원
         audioRef.current.volume = 0;
         await audioRef.current.play();
         setIsPlaying(true);
-        await new Promise(r => setTimeout(r, 50));
-        audioRef.current.muted = false;
+        await new Promise(r => setTimeout(r, 50)); // 💡 구버전 타이머 복원
+        audioRef.current.muted = false; 
         await doFade(1, 200);
         if (audioRef.current) audioRef.current.volume = 1; 
       } else {
@@ -303,7 +302,7 @@ export default function AlbumPage() {
         audioRef.current.pause();
         setIsPlaying(false);
       } else {
-        ensureAudioContext();
+        ensureAudioContext(); 
         audioRef.current.volume = 0;
         await audioRef.current.play();
         setIsPlaying(true);
@@ -334,11 +333,11 @@ export default function AlbumPage() {
     }
   };
 
-  // 곡 변경 시 자동 이어서 재생 엔진 (구버전 load() 포함 복원)
+  // --- 곡 변경 시 자동 이어서 재생 엔진 (구버전의 load() 포함 복원) ---
   useEffect(() => {
     if (audioRef.current && viewState === 'main') {
       audioRef.current.pause();
-      audioRef.current.load();
+      audioRef.current.load(); // 💡 구버전의load() 명령어 복원
       setCurrentTime(0);
       setActiveLyricIndex(0);
       audioRef.current.muted = false;
@@ -360,7 +359,7 @@ export default function AlbumPage() {
       }
     }
   }, [currentTrack]); 
-  // 💡 [초기 안정화 버전 완전 롤백] 오디오 엔진 파트 끝
+  // 💡 [초기 안정화 버전 복원 2끝] 오디오 엔진 롤백 완료
 
   // --- [컨트롤 슬라이더 로직] ---
   const handlePointerDown = (e) => {
@@ -426,7 +425,7 @@ export default function AlbumPage() {
   return (
     <div ref={bgRef} className="min-h-screen text-gray-900 font-sans overflow-x-hidden relative" style={{ background: 'radial-gradient(circle at center, #FFFFFF 0%, #DDE1E5 var(--pulse-size, 100%))' }}>
       
-      {/* 💡 오리지널 오디오 태그 구버전 복원 */}
+      {/* 💡 [초기 안정화 버전 복원 3] 오리지널 audio 태그 롤백 */}
       <audio 
         ref={audioRef} 
         src={trackList[currentTrack - 1].음원} 

@@ -36,7 +36,7 @@ export default function AlbumPage() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  const isMuted = false; // 음소거 UI 삭제 (내부 로직 보호용으로 상수 유지)
+  const isMuted = false; 
   const [isListOpen, setIsListOpen] = useState(false);
   const [isAutoScroll, setIsAutoScroll] = useState(true);
   const [activeLyricIndex, setActiveLyricIndex] = useState(0);
@@ -60,18 +60,18 @@ export default function AlbumPage() {
   const sourceRef = useRef(null);
   const dataArrayRef = useRef(null);
 
-  // --- 곡 정보 데이터 (앨범아트 포함) ---
+  // --- 곡 정보 데이터 ---
   const trackList = [
     { 
       번호: 1, 제목: "NONB - Fly again!", 
-      앨범아트: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=500", 
+      앨범아트: "/cover1.jpg", 
       가사데이터: [
         { 시간: 28, 내용: "꿈속 만난 나의 모습" },
         { 시간: 34.5, 내용: "그 모습이 아른거려" },
         { 시간: 41, 내용: "끝이 없는 반복들이" },
         { 시간: 47.5, 내용: "나에게 또 소리쳐와" },
         { 시간: 54.5, 내용: "난 왜 흘러가는 시간 속에서" },
-        { 시간: 61, 내용: "되돌아보는 날들만이 늘어날까" },
+        { 시간: 61, 내용: "되돌아보는 날들만이\n늘어날까" },
         { 시간: 67.5, 내용: "아직 늦지 않았으니까\n걱정은 하지 마" },
         { 시간: 74.5, 내용: "끝까지 선명하게\n비춰주고 있으니까" },
         { 시간: 81, 내용: "눈 감으면 저 멀리\n펼쳐지는 하늘에" },
@@ -166,7 +166,10 @@ export default function AlbumPage() {
       const AudioContext = window.AudioContext || window.webkitAudioContext;
       audioCtxRef.current = new AudioContext();
       analyserRef.current = audioCtxRef.current.createAnalyser();
-      analyserRef.current.fftSize = 64; 
+      
+      analyserRef.current.fftSize = 256; 
+      analyserRef.current.smoothingTimeConstant = 0.2; 
+      
       sourceRef.current = audioCtxRef.current.createMediaElementSource(audioRef.current);
       sourceRef.current.connect(analyserRef.current);
       analyserRef.current.connect(audioCtxRef.current.destination);
@@ -177,7 +180,7 @@ export default function AlbumPage() {
     }
   };
 
-  // 💡 [변경점] 배경 애니메이션 반응성/역동성 극한으로 강화
+  // --- 배경 리액티브 애니메이션 ---
   useEffect(() => {
     let animationId;
     let currentSize = 100;
@@ -188,20 +191,20 @@ export default function AlbumPage() {
       if (isPlaying && analyserRef.current && bgRef.current) {
         analyserRef.current.getByteFrequencyData(dataArrayRef.current);
         let sum = 0;
-        // 킥 드럼, 베이스 대역(가장 낮은 주파수) 집중 스캔
         for (let i = 0; i < 3; i++) sum += dataArrayRef.current[i];
         const avg = sum / 3;
         
-        // 데이터 정규화 후 3제곱 처리 (작은 소리는 철저히 무시, 큰 소리에만 폭발적 반응)
         const normalized = avg / 255;
-        const intensity = Math.pow(normalized, 3); 
+        const intensity = Math.pow(normalized, 4); 
         
-        // 최대 300% 이상 팽창 (쿵! 할때 번쩍이도록)
-        targetSize = 100 + intensity * 200;
+        targetSize = 100 + intensity * 200; 
       }
 
-      // LERP 보간 속도 0.2 -> 0.45로 대폭 향상시켜 반응을 스내피(Snappy)하게 만듦
-      currentSize += (targetSize - currentSize) * 0.45;
+      if (targetSize > currentSize) {
+        currentSize += (targetSize - currentSize) * 0.4;
+      } else {
+        currentSize += (targetSize - currentSize) * 0.08;
+      }
       
       if (bgRef.current) {
         bgRef.current.style.setProperty('--pulse-size', `${currentSize}%`);
@@ -214,12 +217,17 @@ export default function AlbumPage() {
     return () => cancelAnimationFrame(animationId);
   }, [isPlaying]);
 
-  // --- [오디오 엔진] 페이드 제어 ---
+  // --- 오디오 페이드 엔진 ---
   const doFade = (targetVolume, durationMs = 150) => {
     return new Promise(resolve => {
       if (!audioRef.current) return resolve();
-      if (fadeAnimationRef.current) cancelAnimationFrame(fadeAnimationRef.current);
-      if (activeFadeResolve.current) activeFadeResolve.current(); 
+      
+      if (fadeAnimationRef.current) {
+        cancelAnimationFrame(fadeAnimationRef.current);
+      }
+      if (activeFadeResolve.current) {
+        activeFadeResolve.current(); 
+      }
 
       activeFadeResolve.current = resolve;
       const startVolume = audioRef.current.volume;
@@ -235,12 +243,15 @@ export default function AlbumPage() {
       const animate = (time) => {
         const elapsed = time - startTime;
         const progress = Math.min(elapsed / durationMs, 1);
-        audioRef.current.volume = Math.max(0, Math.min(1, startVolume + (volumeDiff * progress)));
+        
+        if (audioRef.current) {
+          audioRef.current.volume = Math.max(0, Math.min(1, startVolume + (volumeDiff * progress)));
+        }
         
         if (progress < 1) {
           fadeAnimationRef.current = requestAnimationFrame(animate);
         } else {
-          audioRef.current.volume = Math.max(0, Math.min(1, targetVolume));
+          if (audioRef.current) audioRef.current.volume = Math.max(0, Math.min(1, targetVolume));
           fadeAnimationRef.current = null;
           activeFadeResolve.current = null;
           resolve();
@@ -250,105 +261,90 @@ export default function AlbumPage() {
     });
   };
 
+  // 💡 [핵심 버그 수정] 모바일 호환성 극대화: seeked 이벤트 대기 (유령 소리, 팝 노이즈 차단)
   const executeSeek = async (newTime, forcePlay = false) => {
-    if (!audioRef.current || isSeekingRef.current) return;
-    isSeekingRef.current = true;
+    if (!audioRef.current) return;
+    
     const wasPlaying = isPlaying;
     const willPlay = wasPlaying || forcePlay;
+
     try {
-      if (wasPlaying) await doFade(0, 150);
-      audioRef.current.muted = true;
-      if (wasPlaying) audioRef.current.pause();
+      if (wasPlaying) {
+        await doFade(0, 150);
+        audioRef.current.pause();
+      }
+      
       audioRef.current.currentTime = newTime;
       setCurrentTime(newTime);
       setIsDragging(false);
+
       if (willPlay) {
         ensureAudioContext(); 
-        await new Promise(r => setTimeout(r, 80));
+        setIsPlaying(true); 
+        
+        // 모바일 브라우저가 새 시간대의 오디오 버퍼를 완전히 디코딩할 때까지 대기
+        await new Promise((resolve) => {
+          const onSeeked = () => {
+            audioRef.current.removeEventListener('seeked', onSeeked);
+            resolve();
+          };
+          audioRef.current.addEventListener('seeked', onSeeked);
+          // 만약 모바일 브라우저가 이벤트를 씹을 경우를 대비한 300ms 최후의 보루
+          setTimeout(() => {
+            audioRef.current.removeEventListener('seeked', onSeeked);
+            resolve();
+          }, 300);
+        });
+
         audioRef.current.volume = 0;
         await audioRef.current.play();
-        setIsPlaying(true);
-        await new Promise(r => setTimeout(r, 50));
-        audioRef.current.muted = false; // 강제 음소거 해제
         await doFade(1, 200);
-        if (audioRef.current) audioRef.current.volume = 1; 
-      } else {
-        audioRef.current.muted = false;
       }
     } catch (e) {
-      setIsPlaying(false);
-      if (audioRef.current) audioRef.current.muted = false;
-    } finally {
-      isSeekingRef.current = false;
+      console.error("Seek Error:", e);
     }
   };
 
   const togglePlay = async (e) => {
     if (e) { e.preventDefault(); e.stopPropagation(); }
-    if (!audioRef.current || isSeekingRef.current) return;
-    isSeekingRef.current = true;
+    if (!audioRef.current) return;
+
     try {
       if (isPlaying) {
+        setIsPlaying(false); 
         await doFade(0, 150);
         audioRef.current.pause();
-        setIsPlaying(false);
       } else {
         ensureAudioContext(); 
         audioRef.current.volume = 0;
+        setIsPlaying(true); 
         await audioRef.current.play();
-        setIsPlaying(true);
         await doFade(1, 200);
-        if (audioRef.current) audioRef.current.volume = 1; 
       }
     } catch (e) {
       console.error("Playback error:", e);
       setIsPlaying(false);
       if (audioRef.current) audioRef.current.volume = 1; 
-    } finally {
-      isSeekingRef.current = false;
     }
   };
 
   const changeTrack = async (direction) => {
-    if (isSeekingRef.current) return;
-    isSeekingRef.current = true;
     try {
-      if (isPlaying) {
+      if (isPlaying && audioRef.current) {
         await doFade(0, 150);
         audioRef.current.pause();
       }
       if (direction === 'next') setCurrentTrack(prev => (prev < 7 ? prev + 1 : 1));
       else setCurrentTrack(prev => (prev > 1 ? prev - 1 : 7));
-    } finally {
-      isSeekingRef.current = false;
+    } catch (e) {
+      console.error("Track Change Error:", e);
     }
   };
 
   // --- 곡 변경 시 자동 이어서 재생 엔진 ---
   useEffect(() => {
-    if (audioRef.current && viewState === 'main') {
-      audioRef.current.pause();
-      audioRef.current.load();
-      setCurrentTime(0);
-      setActiveLyricIndex(0);
-      audioRef.current.muted = false;
-
-      if (isPlaying) {
-        ensureAudioContext();
-        audioRef.current.volume = 0;
-        const playPromise = audioRef.current.play();
-        if (playPromise !== undefined) {
-          playPromise.then(() => {
-            doFade(1, 200).then(() => {
-              if (audioRef.current) audioRef.current.volume = 1;
-            }); 
-          }).catch((error) => {
-            console.error("오토플레이 방지됨:", error);
-            setIsPlaying(false);
-          });
-        }
-      }
-    }
+    setCurrentTime(0);
+    setActiveLyricIndex(0);
   }, [currentTrack]); 
 
   // --- [컨트롤 슬라이더 로직] ---
@@ -414,7 +410,29 @@ export default function AlbumPage() {
 
   return (
     <div ref={bgRef} className="min-h-screen text-gray-900 font-sans overflow-x-hidden relative" style={{ background: 'radial-gradient(circle at center, #FFFFFF 0%, #DDE1E5 var(--pulse-size, 100%))' }}>
-      <audio ref={audioRef} src={trackList[currentTrack - 1].음원} crossOrigin="anonymous" onLoadedMetadata={(e) => setDuration(e.target.duration)} onTimeUpdate={() => !isDragging && setCurrentTime(audioRef.current.currentTime)} onEnded={() => changeTrack('next')} preload="auto" playsInline />
+      
+      <audio 
+        ref={audioRef} 
+        src={trackList[currentTrack - 1].음원} 
+        crossOrigin="anonymous" 
+        onLoadedMetadata={(e) => {
+          setDuration(e.target.duration);
+          if (isPlaying && audioRef.current) {
+            ensureAudioContext();
+            audioRef.current.volume = 0;
+            audioRef.current.play().then(() => {
+              doFade(1, 200);
+            }).catch(err => {
+              console.error("Auto-play blocked by browser:", err);
+              setIsPlaying(false);
+            });
+          }
+        }}
+        onTimeUpdate={() => !isDragging && setCurrentTime(audioRef.current.currentTime)} 
+        onEnded={() => changeTrack('next')} 
+        preload="auto" 
+        playsInline 
+      />
 
       {/* 1. 로그인 화면 */}
       {viewState === 'login' && (
@@ -490,7 +508,7 @@ export default function AlbumPage() {
                 </div>
               </div>
 
-              {/* 💡 앨범아트 ↔ 가사 크로스페이드 트랜지션 영역 */}
+              {/* 앨범아트 ↔ 가사 크로스페이드 트랜지션 영역 */}
               <div className="bg-white/40 backdrop-blur-md rounded-3xl border border-white/60 relative min-h-[480px] shadow-lg overflow-hidden">
                 
                 {/* --- 앨범아트 모드 --- */}
@@ -503,7 +521,6 @@ export default function AlbumPage() {
                 {/* --- 가사 모드 --- */}
                 <div className={`absolute inset-0 p-8 flex flex-col pb-6 transition-all duration-700 ease-in-out ${showLyrics ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8 pointer-events-none'}`}>
                   <div className="w-full flex justify-between items-center mb-6 shrink-0">
-                    {/* 💡 곡 제목 원복 */}
                     <h1 className="text-xl font-bold text-[#E63946] tracking-wider drop-shadow-sm truncate pr-4">
                       {trackList[currentTrack - 1].제목}
                     </h1>
@@ -518,11 +535,12 @@ export default function AlbumPage() {
                         key={index} 
                         ref={el => lyricRefs.current[index] = el} 
                         onClick={() => seekTo(lyric.시간)} 
-                        className={`transition-all duration-700 text-center py-2 cursor-pointer break-keep whitespace-pre-wrap leading-relaxed ${
+                        className={`transition-all duration-500 ease-out transform-gpu text-center py-2 cursor-pointer break-keep whitespace-pre-wrap leading-relaxed text-lg font-bold origin-center ${
                           !isAutoScroll 
-                            ? (activeLyricIndex === index ? 'text-[#1A1A1A] font-bold opacity-100' : 'text-gray-500 font-medium opacity-100 hover:text-gray-800')
-                            : (activeLyricIndex === index ? 'text-[#1A1A1A] text-2xl font-bold scale-110 opacity-100 drop-shadow-sm' : 'text-gray-400 font-medium opacity-40 scale-100')
+                            ? (activeLyricIndex === index ? 'text-[#1A1A1A] opacity-100' : 'text-gray-500 opacity-100 hover:text-gray-800')
+                            : (activeLyricIndex === index ? 'text-[#1A1A1A] scale-[1.25] opacity-100 drop-shadow-sm' : 'text-gray-400 opacity-40 scale-100')
                         }`}
+                        style={{ willChange: 'transform, opacity, color' }}
                       >
                         {lyric.내용}
                       </div>
@@ -586,7 +604,7 @@ export default function AlbumPage() {
                     </button>
                   </div>
                   
-                  {/* 💡 변경점: 가사 토글 버튼 (음소거 자리로 이동) */}
+                  {/* 가사 토글 버튼 */}
                   <button 
                     onClick={() => setShowLyrics(!showLyrics)} 
                     className={`absolute right-0 p-2 transition-all active:scale-90 ${showLyrics ? 'text-[#E63946] drop-shadow-md' : 'text-gray-400 hover:text-gray-800'}`}

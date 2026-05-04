@@ -60,7 +60,7 @@ export default function AlbumPage() {
   const sourceRef = useRef(null);
   const dataArrayRef = useRef(null);
 
-  // --- 곡 정보 데이터 (앨범아트 포함) ---
+  // --- 곡 정보 데이터 (1번 트랙 앨범아트 로컬 경로 반영) ---
   const trackList = [
     { 
       번호: 1, 제목: "NONB - Fly again!", 
@@ -180,7 +180,7 @@ export default function AlbumPage() {
     }
   };
 
-  // 💡 [변경점] 릴리즈 시간 연장 (번쩍거림 완화, 부드러운 잔향)
+  // --- 배경 리액티브 애니메이션 ---
   useEffect(() => {
     let animationId;
     let currentSize = 100;
@@ -200,12 +200,9 @@ export default function AlbumPage() {
         targetSize = 100 + intensity * 200; 
       }
 
-      // 비대칭 LERP 적용
       if (targetSize > currentSize) {
-        // 커질 때 (Attack): 0.4 속도로 시원하게 뻗어나감
         currentSize += (targetSize - currentSize) * 0.4;
       } else {
-        // 💡 릴리즈 수정: 0.85 -> 0.08 로 대폭 낮추어 서서히 부드럽게 어두워지게 함
         currentSize += (targetSize - currentSize) * 0.08;
       }
       
@@ -523,11 +520,13 @@ export default function AlbumPage() {
                         key={index} 
                         ref={el => lyricRefs.current[index] = el} 
                         onClick={() => seekTo(lyric.시간)} 
-                        className={`transition-all duration-700 text-center py-2 cursor-pointer break-keep whitespace-pre-wrap leading-relaxed ${
+                        // 💡 변경점: transform-gpu 추가 및 duration 최적화로 애니메이션 버벅임 완벽 해소
+                        className={`transition-all duration-500 ease-out transform-gpu text-center py-2 cursor-pointer break-keep whitespace-pre-wrap leading-relaxed ${
                           !isAutoScroll 
                             ? (activeLyricIndex === index ? 'text-[#1A1A1A] font-bold opacity-100' : 'text-gray-500 font-medium opacity-100 hover:text-gray-800')
                             : (activeLyricIndex === index ? 'text-[#1A1A1A] text-2xl font-bold scale-110 opacity-100 drop-shadow-sm' : 'text-gray-400 font-medium opacity-40 scale-100')
                         }`}
+                        style={{ willChange: 'transform, opacity' }}
                       >
                         {lyric.내용}
                       </div>

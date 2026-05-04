@@ -36,7 +36,7 @@ export default function AlbumPage() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  const isMuted = false; 
+  const isMuted = false; // 음소거 UI 삭제 (내부 로직 보호용으로 상수 유지)
   const [isListOpen, setIsListOpen] = useState(false);
   const [isAutoScroll, setIsAutoScroll] = useState(true);
   const [activeLyricIndex, setActiveLyricIndex] = useState(0);
@@ -60,12 +60,11 @@ export default function AlbumPage() {
   const sourceRef = useRef(null);
   const dataArrayRef = useRef(null);
 
-  // --- 곡 정보 데이터 ---
-  // 💡 가사에 \n 을 넣으시면 수동으로 예쁘게 줄바꿈이 적용됩니다. (아래는 원본 유지)
+  // --- 곡 정보 데이터 (앨범아트 포함) ---
   const trackList = [
     { 
       번호: 1, 제목: "NONB - Fly again!", 
-      앨범아트: "/cover1.jpg", 
+      앨범아트: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=500", 
       가사데이터: [
         { 시간: 28, 내용: "꿈속 만난 나의 모습" },
         { 시간: 34.5, 내용: "그 모습이 아른거려" },
@@ -73,9 +72,9 @@ export default function AlbumPage() {
         { 시간: 47.5, 내용: "나에게 또 소리쳐와" },
         { 시간: 54.5, 내용: "난 왜 흘러가는 시간 속에서" },
         { 시간: 61, 내용: "되돌아보는 날들만이 늘어날까" },
-        { 시간: 67.5, 내용: "아직 늦지 않았으니까\n걱정은 하지 마" },
-        { 시간: 74.5, 내용: "끝까지 선명하게\n비춰주고 있으니까" },
-        { 시간: 81, 내용: "눈 감으면 저 멀리\n펼쳐지는 하늘에" },
+        { 시간: 67.5, 내용: "아직 늦지 않았으니까 걱정은 하지 마" },
+        { 시간: 74.5, 내용: "끝까지 선명하게 비춰주고 있으니까" },
+        { 시간: 81, 내용: "눈 감으면 저 멀리 펼쳐지는 하늘에" },
         { 시간: 87.5, 내용: "잠깐 동안의 우리 세상으로" },
         { 시간: 97, 내용: "Fly again!" },
         { 시간: 103.5, 내용: "Fly again!" },
@@ -83,20 +82,20 @@ export default function AlbumPage() {
         { 시간: 115.5, 내용: "뒤돌아선" },
         { 시간: 119, 내용: "모습에 소리쳐봐" },
         { 시간: 122, 내용: "난 왜 지나가는 시간 속에서" },
-        { 시간: 129, 내용: "후회하는 날들만이\n늘어날까" },
-        { 시간: 135, 내용: "아직 늦지 않았으니까\n걱정은 하지 마" },
-        { 시간: 142, 내용: "끝까지 선명하게\n비춰주고 있으니까" },
-        { 시간: 148.5, 내용: "눈 감으면 저 멀리\n펼쳐지는 하늘에" },
-        { 시간: 155, 내용: "잠깐 동안의\n우리 세상으로" },
+        { 시간: 129, 내용: "후회하는 날들만이 늘어날까" },
+        { 시간: 135, 내용: "아직 늦지 않았으니까 걱정은 하지 마" },
+        { 시간: 142, 내용: "끝까지 선명하게 비춰주고 있으니까" },
+        { 시간: 148.5, 내용: "눈 감으면 저 멀리 펼쳐지는 하늘에" },
+        { 시간: 155, 내용: "잠깐 동안의 우리 세상으로" },
         { 시간: 161, 내용: "날아가 보는 거야" },
         { 시간: 164, 내용: "우리 어떤 모습이라도" },
         { 시간: 168.5, 내용: "결국 함께라면" },
         { 시간: 171.5, 내용: "끝은 나지 않을 거야" },
         { 시간: 177, 내용: "아무리 높은 벽이 있어도" },
         { 시간: 181.5, 내용: "우리 세상으로 날아가" },
-        { 시간: 188.5, 내용: "아직 늦지 않았으니까\n걱정은 하지 마" },
-        { 시간: 195, 내용: "이 길의 끝에서 우리\n함께 만날 거니까" },
-        { 시간: 201.5, 내용: "눈을 뜨면 그 앞에\n펼쳐지는 하늘에" },
+        { 시간: 188.5, 내용: "아직 늦지 않았으니까 걱정은 하지 마" },
+        { 시간: 195, 내용: "이 길의 끝에서 우리 함께 만날 거니까" },
+        { 시간: 201.5, 내용: "눈을 뜨면 그 앞에 펼쳐지는 하늘에" },
         { 시간: 208, 내용: "끝이 없는 우리 세상으로" },
         { 시간: 214, 내용: "날아가 보는 거야" },
         { 시간: 218, 내용: "Fly again!" },
@@ -167,10 +166,7 @@ export default function AlbumPage() {
       const AudioContext = window.AudioContext || window.webkitAudioContext;
       audioCtxRef.current = new AudioContext();
       analyserRef.current = audioCtxRef.current.createAnalyser();
-      
-      analyserRef.current.fftSize = 256; 
-      analyserRef.current.smoothingTimeConstant = 0.2; 
-      
+      analyserRef.current.fftSize = 64; 
       sourceRef.current = audioCtxRef.current.createMediaElementSource(audioRef.current);
       sourceRef.current.connect(analyserRef.current);
       analyserRef.current.connect(audioCtxRef.current.destination);
@@ -181,7 +177,7 @@ export default function AlbumPage() {
     }
   };
 
-  // --- 배경 리액티브 애니메이션 ---
+  // 💡 [변경점] 배경 애니메이션 반응성/역동성 극한으로 강화
   useEffect(() => {
     let animationId;
     let currentSize = 100;
@@ -192,20 +188,20 @@ export default function AlbumPage() {
       if (isPlaying && analyserRef.current && bgRef.current) {
         analyserRef.current.getByteFrequencyData(dataArrayRef.current);
         let sum = 0;
+        // 킥 드럼, 베이스 대역(가장 낮은 주파수) 집중 스캔
         for (let i = 0; i < 3; i++) sum += dataArrayRef.current[i];
         const avg = sum / 3;
         
+        // 데이터 정규화 후 3제곱 처리 (작은 소리는 철저히 무시, 큰 소리에만 폭발적 반응)
         const normalized = avg / 255;
-        const intensity = Math.pow(normalized, 4); 
+        const intensity = Math.pow(normalized, 3); 
         
-        targetSize = 100 + intensity * 200; 
+        // 최대 300% 이상 팽창 (쿵! 할때 번쩍이도록)
+        targetSize = 100 + intensity * 200;
       }
 
-      if (targetSize > currentSize) {
-        currentSize += (targetSize - currentSize) * 0.4;
-      } else {
-        currentSize += (targetSize - currentSize) * 0.08;
-      }
+      // LERP 보간 속도 0.2 -> 0.45로 대폭 향상시켜 반응을 스내피(Snappy)하게 만듦
+      currentSize += (targetSize - currentSize) * 0.45;
       
       if (bgRef.current) {
         bgRef.current.style.setProperty('--pulse-size', `${currentSize}%`);
@@ -273,7 +269,7 @@ export default function AlbumPage() {
         await audioRef.current.play();
         setIsPlaying(true);
         await new Promise(r => setTimeout(r, 50));
-        audioRef.current.muted = false; 
+        audioRef.current.muted = false; // 강제 음소거 해제
         await doFade(1, 200);
         if (audioRef.current) audioRef.current.volume = 1; 
       } else {
@@ -494,7 +490,7 @@ export default function AlbumPage() {
                 </div>
               </div>
 
-              {/* 앨범아트 ↔ 가사 크로스페이드 트랜지션 영역 */}
+              {/* 💡 앨범아트 ↔ 가사 크로스페이드 트랜지션 영역 */}
               <div className="bg-white/40 backdrop-blur-md rounded-3xl border border-white/60 relative min-h-[480px] shadow-lg overflow-hidden">
                 
                 {/* --- 앨범아트 모드 --- */}
@@ -507,6 +503,7 @@ export default function AlbumPage() {
                 {/* --- 가사 모드 --- */}
                 <div className={`absolute inset-0 p-8 flex flex-col pb-6 transition-all duration-700 ease-in-out ${showLyrics ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8 pointer-events-none'}`}>
                   <div className="w-full flex justify-between items-center mb-6 shrink-0">
+                    {/* 💡 곡 제목 원복 */}
                     <h1 className="text-xl font-bold text-[#E63946] tracking-wider drop-shadow-sm truncate pr-4">
                       {trackList[currentTrack - 1].제목}
                     </h1>
@@ -521,14 +518,11 @@ export default function AlbumPage() {
                         key={index} 
                         ref={el => lyricRefs.current[index] = el} 
                         onClick={() => seekTo(lyric.시간)} 
-                        // 💡 [변경점] 폰트 크기(text-lg)와 굵기(font-bold)를 모두 통일하고 오직 확대(scale)만 사용!
-                        // transform-gpu 속성과 will-change를 결합해 프레임 드랍(레이아웃 스래싱) 완벽 제거
-                        className={`transition-all duration-500 ease-out transform-gpu text-center py-2 cursor-pointer break-keep whitespace-pre-wrap leading-relaxed text-lg font-bold origin-center ${
+                        className={`transition-all duration-700 text-center py-2 cursor-pointer break-keep whitespace-pre-wrap leading-relaxed ${
                           !isAutoScroll 
-                            ? (activeLyricIndex === index ? 'text-[#1A1A1A] opacity-100' : 'text-gray-500 opacity-100 hover:text-gray-800')
-                            : (activeLyricIndex === index ? 'text-[#1A1A1A] scale-[1.25] opacity-100 drop-shadow-sm' : 'text-gray-400 opacity-40 scale-100')
+                            ? (activeLyricIndex === index ? 'text-[#1A1A1A] font-bold opacity-100' : 'text-gray-500 font-medium opacity-100 hover:text-gray-800')
+                            : (activeLyricIndex === index ? 'text-[#1A1A1A] text-2xl font-bold scale-110 opacity-100 drop-shadow-sm' : 'text-gray-400 font-medium opacity-40 scale-100')
                         }`}
-                        style={{ willChange: 'transform, opacity' }}
                       >
                         {lyric.내용}
                       </div>
@@ -592,7 +586,7 @@ export default function AlbumPage() {
                     </button>
                   </div>
                   
-                  {/* 가사 토글 버튼 */}
+                  {/* 💡 변경점: 가사 토글 버튼 (음소거 자리로 이동) */}
                   <button 
                     onClick={() => setShowLyrics(!showLyrics)} 
                     className={`absolute right-0 p-2 transition-all active:scale-90 ${showLyrics ? 'text-[#E63946] drop-shadow-md' : 'text-gray-400 hover:text-gray-800'}`}

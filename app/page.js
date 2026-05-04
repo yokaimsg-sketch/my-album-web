@@ -54,7 +54,7 @@ export default function AlbumPage() {
   const isSeekingRef = useRef(false); 
   const bgRef = useRef(null);
 
-  // --- 곡 정보 데이터 (수동 줄바꿈 가사 적용 버전) ---
+  // --- 곡 정보 데이터 ---
   const trackList = [
     { 
       번호: 1, 제목: "NONB - Fly again!", 
@@ -122,7 +122,6 @@ export default function AlbumPage() {
     }
   }, []);
 
-  // --- [보안] SHA-256 해싱 엔진 ---
   const hashString = async (string) => {
     const utf8 = new TextEncoder().encode(string);
     const hashBuffer = await crypto.subtle.digest('SHA-256', utf8);
@@ -143,7 +142,6 @@ export default function AlbumPage() {
     }
   };
 
-  // --- [연출] 인트로 시퀀스 ---
   useEffect(() => {
     if (viewState === 'intro') {
       setTimeout(() => setIntroOpacity(100), 100);
@@ -152,7 +150,7 @@ export default function AlbumPage() {
     }
   }, [viewState]);
 
-  // --- 오디오 엔진: 페이드 인/아웃 정밀 제어 ---
+  // --- 오디오 페이드 엔진 ---
   const doFade = (targetVolume, durationMs = 150) => {
     return new Promise(resolve => {
       if (!audioRef.current) return resolve();
@@ -163,7 +161,7 @@ export default function AlbumPage() {
       const startVolume = audioRef.current.volume;
       const volumeDiff = targetVolume - startVolume;
 
-      if (Math.abs(volumeDiff) < 0.001) {
+      if (Math.abs(volumeDiff) < 0.01) {
         audioRef.current.volume = targetVolume;
         activeFadeResolve.current = null;
         return resolve();
@@ -174,7 +172,6 @@ export default function AlbumPage() {
         const elapsed = time - startTime;
         const progress = Math.min(elapsed / durationMs, 1);
         
-        // 💡 부드러운 로그 곡선(Logarithmic) 느낌을 위한 단순 선형 보간
         if (audioRef.current) {
             audioRef.current.volume = Math.max(0, Math.min(1, startVolume + (volumeDiff * progress)));
         }
@@ -192,7 +189,25 @@ export default function AlbumPage() {
     });
   };
 
-  // 💡 [핵심 버그 수정] 페이드 인을 확실히 들리게 하고 팝 노이즈를 제거한 정밀 시퀀스
+  // 💡 [궁극의 해결] 스피커 기상 타이밍 동기화 함수
+  const waitForSpeakerToWakeUp = () => {
+    return new Promise(resolve => {
+      if (!audioRef.current) return resolve();
+      
+      const onPlaying = () => {
+        audioRef.current.removeEventListener('playing', onPlaying);
+        resolve();
+      };
+      
+      audioRef.current.addEventListener('playing', onPlaying);
+      // 만약 브라우저가 이벤트를 씹더라도 무한 대기하지 않도록 300ms 최후의 보루 설정
+      setTimeout(() => {
+        audioRef.current.removeEventListener('playing', onPlaying);
+        resolve();
+      }, 300);
+    });
+  };
+
   const executeSeek = async (newTime, forcePlay = false) => {
     if (!audioRef.current || isSeekingRef.current) return;
     if (audioRef.current.readyState === 0) return;
@@ -203,40 +218,29 @@ export default function AlbumPage() {
 
     try {
       if (wasPlaying) {
-          await doFade(0, 150); // 페이드 아웃
+          await doFade(0, 150); // 안전한 페이드 아웃
           audioRef.current.pause();
       }
       
-      // 💡 1단계: 하드웨어 뮤트 후 시간 이동
-      audioRef.current.muted = true;
+      // 💡 팝 노이즈의 주범이었던 muted = true 완전 제거, 오직 볼륨 0으로만 컨트롤
       audioRef.current.currentTime = newTime;
       setCurrentTime(newTime);
       setIsDragging(false);
       
       if (willPlay) {
-        // 💡 2단계: 볼륨을 0으로 선제 고정 (팝 노이즈 원천 차단)
-        audioRef.current.volume = 0;
-        
-        // 모바일 브라우저 안정화 대기
-        await new Promise(r => setTimeout(r, 150));
-        
-        // 💡 3단계: 재생 시작
+        audioRef.current.volume = 0; // 재생 시작 전 볼륨 완전 차단
         await audioRef.current.play();
         setIsPlaying(true);
         
-        // 💡 4단계: 재생 시작 후 아주 짧은 찰나(80ms) 뒤 뮤트 해제 (찌꺼기 소리 씹기)
-        await new Promise(r => setTimeout(r, 80));
-        audioRef.current.muted = false; 
+        // 💡 브라우저가 진짜 스피커로 소리를 밀어내기 시작할 때까지 대기
+        await waitForSpeakerToWakeUp();
         
-        // 💡 5단계: 들리는 페이드 인 시작 (400ms로 늘려 부드러움 확보)
+        // 스피커가 깨어난 직후, 진짜 페이드 인 시작
         await doFade(1, 400); 
-      } else {
-        audioRef.current.muted = false;
       }
     } catch (e) {
       console.error("Seek Error:", e);
       setIsPlaying(false);
-      if (audioRef.current) audioRef.current.muted = false;
     } finally {
       isSeekingRef.current = false;
     }
@@ -252,11 +256,12 @@ export default function AlbumPage() {
         audioRef.current.pause();
         setIsPlaying(false);
       } else {
-        // 💡 시작 시에도 확실한 페이드 인 적용
         audioRef.current.volume = 0;
-        audioRef.current.muted = false;
         await audioRef.current.play();
         setIsPlaying(true);
+        
+        // 💡 재생 시작 시에도 동일하게 스피커 동기화
+        await waitForSpeakerToWakeUp();
         await doFade(1, 400); 
       }
     } catch (e) {
@@ -289,12 +294,19 @@ export default function AlbumPage() {
       audioRef.current.load();
       setCurrentTime(0);
       setActiveLyricIndex(0);
-      audioRef.current.muted = false;
+      
       if (isPlaying) {
         audioRef.current.volume = 0;
-        audioRef.current.play().then(() => {
-          doFade(1, 400);
-        }).catch(() => setIsPlaying(false));
+        const playPromise = audioRef.current.play();
+        if (playPromise !== undefined) {
+          playPromise
+            .then(() => waitForSpeakerToWakeUp()) // 💡 자동 이어서 재생 시에도 동기화 적용
+            .then(() => doFade(1, 400))
+            .catch((error) => {
+              console.error("오토플레이 방지됨:", error);
+              setIsPlaying(false);
+            });
+        }
       }
     }
   }, [currentTrack]); 

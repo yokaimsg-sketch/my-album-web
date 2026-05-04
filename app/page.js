@@ -51,17 +51,18 @@ export default function AlbumPage() {
   const lyricRefs = useRef([]);
   const fadeAnimationRef = useRef(null);
   const activeFadeResolve = useRef(null); 
-  // 💡 [초기 안정화 버전 복원 1] 연타 방지 락(Lock) 완벽 복구
+  // 💡 구버전의 핵심 방패: 재생/이동 중 연타 방지 락(Lock) 원복
   const isSeekingRef = useRef(false); 
 
-  // === 오디오 리액티브 & 배경 참조 ===
+  // === 배경 참조 ===
   const bgRef = useRef(null);
+  // 💡 [궁극의 해결책 1] 배경 애니메이션 삭제로 오디오 리액티브 관련 코드 전부 제거
   const audioCtxRef = useRef(null);
   const analyserRef = useRef(null);
   const sourceRef = useRef(null);
   const dataArrayRef = useRef(null);
 
-  // --- 곡 정보 데이터 (신규 가사 적용 완료) ---
+  // --- 곡 정보 데이터 (수동 줄바꿈 데이터 적용 완료) ---
   const trackList = [
     { 
       번호: 1, 제목: "NONB - Fly again!", 
@@ -161,64 +162,9 @@ export default function AlbumPage() {
     }
   }, [viewState]);
 
-  // --- [오디오 리액티브 엔진 초기화] ---
-  const ensureAudioContext = () => {
-    if (!audioCtxRef.current && audioRef.current) {
-      const AudioContext = window.AudioContext || window.webkitAudioContext;
-      audioCtxRef.current = new AudioContext();
-      analyserRef.current = audioCtxRef.current.createAnalyser();
-      
-      analyserRef.current.fftSize = 256; 
-      analyserRef.current.smoothingTimeConstant = 0.2; 
-      
-      sourceRef.current = audioCtxRef.current.createMediaElementSource(audioRef.current);
-      sourceRef.current.connect(analyserRef.current);
-      analyserRef.current.connect(audioCtxRef.current.destination);
-      dataArrayRef.current = new Uint8Array(analyserRef.current.frequencyBinCount);
-    }
-    if (audioCtxRef.current?.state === 'suspended') {
-      audioCtxRef.current.resume();
-    }
-  };
+  // --- [궁극의 해결책 1] 배경 애니메이션 완전 비활성화로 오디오 Context 및 리액티브 코드 삭제 ---
 
-  // --- 배경 리액티브 애니메이션 ---
-  useEffect(() => {
-    let animationId;
-    let currentSize = 100;
-
-    const renderLoop = () => {
-      let targetSize = 100;
-
-      if (isPlaying && analyserRef.current && bgRef.current) {
-        analyserRef.current.getByteFrequencyData(dataArrayRef.current);
-        let sum = 0;
-        for (let i = 0; i < 3; i++) sum += dataArrayRef.current[i];
-        const avg = sum / 3;
-        
-        const normalized = avg / 255;
-        const intensity = Math.pow(normalized, 4); 
-        
-        targetSize = 100 + intensity * 200; 
-      }
-
-      if (targetSize > currentSize) {
-        currentSize += (targetSize - currentSize) * 0.4;
-      } else {
-        currentSize += (targetSize - currentSize) * 0.08;
-      }
-      
-      if (bgRef.current) {
-        bgRef.current.style.setProperty('--pulse-size', `${currentSize}%`);
-      }
-      
-      animationId = requestAnimationFrame(renderLoop);
-    };
-
-    renderLoop();
-    return () => cancelAnimationFrame(animationId);
-  }, [isPlaying]);
-
-  // 💡 [초기 안정화 버전 복원 2] 오디오 엔진 파트 완전 롤백
+  // 💡 [구버전 오디오 엔진 완전 롤백 복원] 오디오 엔진 파트 시작
   const doFade = (targetVolume, durationMs = 150) => {
     return new Promise(resolve => {
       if (!audioRef.current) return resolve();
@@ -254,11 +200,12 @@ export default function AlbumPage() {
     });
   };
 
+  // 💡 [궁극의 해결책 2] 오디오 settle 타임 강화 (유령 소리 틀어막기)
   const executeSeek = async (newTime, forcePlay = false) => {
     // 가장 단단했던 오리지널 방어막 복원: 연타 방지
     if (!audioRef.current || isSeekingRef.current) return;
     
-    // 💡 단 하나의 안전 코드 추가: 로딩 전 가사 클릭 시 앱 멈춤 방지
+    // 💡 단 하나의 추가 코드: 로딩 전 가사 클릭 시 앱 멈춤 방지
     if (audioRef.current.readyState === 0) return;
 
     isSeekingRef.current = true;
@@ -271,13 +218,14 @@ export default function AlbumPage() {
       audioRef.current.currentTime = newTime;
       setCurrentTime(newTime);
       setIsDragging(false);
+      
       if (willPlay) {
-        ensureAudioContext(); 
-        await new Promise(r => setTimeout(r, 80)); // 💡 구버전 타이머 복원
+        // 배경 애니메이션 엔진이 없어졌으므로Context()도 필요 없음
+        await new Promise(r => setTimeout(r, 150)); // 💡 settle 타임 강화: 80ms -> 150ms
         audioRef.current.volume = 0;
         await audioRef.current.play();
         setIsPlaying(true);
-        await new Promise(r => setTimeout(r, 50)); // 💡 구버전 타이머 복원
+        await new Promise(r => setTimeout(r, 100)); // 💡 무음 씹어먹기 타임 강화: 50ms -> 100ms
         audioRef.current.muted = false; 
         await doFade(1, 200);
         if (audioRef.current) audioRef.current.volume = 1; 
@@ -302,7 +250,7 @@ export default function AlbumPage() {
         audioRef.current.pause();
         setIsPlaying(false);
       } else {
-        ensureAudioContext(); 
+        // 배경 애니메이션 엔진이 없어졌으므로Context()도 필요 없음
         audioRef.current.volume = 0;
         await audioRef.current.play();
         setIsPlaying(true);
@@ -333,7 +281,7 @@ export default function AlbumPage() {
     }
   };
 
-  // --- 곡 변경 시 자동 이어서 재생 엔진 (구버전의 load() 포함 복원) ---
+  // 곡 변경 시 자동 이어서 재생 엔진 (구버전 load() 포함 복원)
   useEffect(() => {
     if (audioRef.current && viewState === 'main') {
       audioRef.current.pause();
@@ -343,7 +291,7 @@ export default function AlbumPage() {
       audioRef.current.muted = false;
 
       if (isPlaying) {
-        ensureAudioContext();
+        // 배경 애니메이션 엔진이 없어졌으므로Context()도 필요 없음
         audioRef.current.volume = 0;
         const playPromise = audioRef.current.play();
         if (playPromise !== undefined) {
@@ -359,7 +307,7 @@ export default function AlbumPage() {
       }
     }
   }, [currentTrack]); 
-  // 💡 [초기 안정화 버전 복원 2끝] 오디오 엔진 롤백 완료
+  // 💡 [구버전 오디오 엔진 완전 롤백 복원] 오디오 엔진 파트 끝
 
   // --- [컨트롤 슬라이더 로직] ---
   const handlePointerDown = (e) => {
@@ -423,9 +371,10 @@ export default function AlbumPage() {
   );
 
   return (
-    <div ref={bgRef} className="min-h-screen text-gray-900 font-sans overflow-x-hidden relative" style={{ background: 'radial-gradient(circle at center, #FFFFFF 0%, #DDE1E5 var(--pulse-size, 100%))' }}>
+    // 💡 [궁극의 해결책 1] 배경 애니메이션 완전 비활성화로 static 그라디언트 적용
+    <div ref={bgRef} className="min-h-screen text-gray-900 font-sans overflow-x-hidden relative" style={{ background: 'radial-gradient(circle at center, #FFFFFF 0%, #DDE1E5 100%)' }}>
       
-      {/* 💡 [초기 안정화 버전 복원 3] 오리지널 audio 태그 롤백 */}
+      {/* 💡 [구버전 오리지널 오디오 태그 구버전 복원] */}
       <audio 
         ref={audioRef} 
         src={trackList[currentTrack - 1].음원} 

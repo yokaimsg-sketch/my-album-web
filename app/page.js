@@ -51,6 +51,8 @@ export default function AlbumPage() {
   const lyricRefs = useRef([]);
   const fadeAnimationRef = useRef(null);
   const activeFadeResolve = useRef(null); 
+  // 💡 구버전의 핵심 방패: 재생/이동 중 연타 방지 락(Lock) 원복
+  const isSeekingRef = useRef(false); 
 
   // === 오디오 리액티브 & 배경 참조 ===
   const bgRef = useRef(null);
@@ -59,7 +61,7 @@ export default function AlbumPage() {
   const sourceRef = useRef(null);
   const dataArrayRef = useRef(null);
 
-  // --- 곡 정보 데이터 (신규 가사 완벽 반영) ---
+  // --- 곡 정보 데이터 (신규 가사 적용 완료) ---
   const trackList = [
     { 
       번호: 1, 제목: "NONB - Fly again!", 
@@ -216,17 +218,12 @@ export default function AlbumPage() {
     return () => cancelAnimationFrame(animationId);
   }, [isPlaying]);
 
-  // --- 오디오 페이드 엔진 ---
+  // 💡 [초기 안정화 버전 완전 롤백] 오디오 엔진 파트 시작
   const doFade = (targetVolume, durationMs = 150) => {
     return new Promise(resolve => {
       if (!audioRef.current) return resolve();
-      
-      if (fadeAnimationRef.current) {
-        cancelAnimationFrame(fadeAnimationRef.current);
-      }
-      if (activeFadeResolve.current) {
-        activeFadeResolve.current(); 
-      }
+      if (fadeAnimationRef.current) cancelAnimationFrame(fadeAnimationRef.current);
+      if (activeFadeResolve.current) activeFadeResolve.current(); 
 
       activeFadeResolve.current = resolve;
       const startVolume = audioRef.current.volume;
@@ -242,15 +239,12 @@ export default function AlbumPage() {
       const animate = (time) => {
         const elapsed = time - startTime;
         const progress = Math.min(elapsed / durationMs, 1);
-        
-        if (audioRef.current) {
-          audioRef.current.volume = Math.max(0, Math.min(1, startVolume + (volumeDiff * progress)));
-        }
+        audioRef.current.volume = Math.max(0, Math.min(1, startVolume + (volumeDiff * progress)));
         
         if (progress < 1) {
           fadeAnimationRef.current = requestAnimationFrame(animate);
         } else {
-          if (audioRef.current) audioRef.current.volume = Math.max(0, Math.min(1, targetVolume));
+          audioRef.current.volume = Math.max(0, Math.min(1, targetVolume));
           fadeAnimationRef.current = null;
           activeFadeResolve.current = null;
           resolve();
@@ -260,116 +254,113 @@ export default function AlbumPage() {
     });
   };
 
-  // 💡 [핵심 버그 수정 1 & 2] 모바일 찌꺼기 완벽 차단 및 로딩 전 먹통 방지
   const executeSeek = async (newTime, forcePlay = false) => {
-    if (!audioRef.current) return;
+    // 가장 단단했던 오리지널 방어막: 연타 방지
+    if (!audioRef.current || isSeekingRef.current) return;
     
+    // 💡 단 하나의 추가 코드: 로딩 전 가사 클릭 시 앱 멈춤 방지
+    if (audioRef.current.readyState === 0) return;
+
+    isSeekingRef.current = true;
     const wasPlaying = isPlaying;
     const willPlay = wasPlaying || forcePlay;
-
     try {
-      if (wasPlaying) {
-        await doFade(0, 150);
-        audioRef.current.pause();
-      }
-      
-      // UI 즉시 반영
+      if (wasPlaying) await doFade(0, 150);
+      audioRef.current.muted = true;
+      if (wasPlaying) audioRef.current.pause();
+      audioRef.current.currentTime = newTime;
       setCurrentTime(newTime);
       setIsDragging(false);
-
-      const performSeekAndPlay = async () => {
-        // 💡 찌꺼기 차단: 이동 전 하드웨어 레벨로 강제 무음 처리
-        audioRef.current.muted = true;
-        audioRef.current.currentTime = newTime;
-
-        if (willPlay) {
-          ensureAudioContext(); 
-          setIsPlaying(true); 
-          
-          // 모바일 버퍼 준비 대기
-          await new Promise((resolve) => {
-            const onSeeked = () => {
-              audioRef.current.removeEventListener('seeked', onSeeked);
-              resolve();
-            };
-            audioRef.current.addEventListener('seeked', onSeeked);
-            setTimeout(() => {
-              audioRef.current.removeEventListener('seeked', onSeeked);
-              resolve();
-            }, 300);
-          });
-
-          audioRef.current.volume = 0;
-          await audioRef.current.play();
-
-          // 💡 찌꺼기 방출 찰나(50ms) 대기 후 음소거 해제 및 페이드 인
-          setTimeout(async () => {
-            audioRef.current.muted = false;
-            await doFade(1, 200);
-          }, 50);
-        } else {
-          audioRef.current.muted = false;
-        }
-      };
-
-      // 💡 먹통 방지: 오디오가 아직 로드되지 않은 상태(readyState === 0) 처리
-      if (audioRef.current.readyState === 0) {
-        const onCanPlay = () => {
-          audioRef.current.removeEventListener('canplay', onCanPlay);
-          performSeekAndPlay();
-        };
-        audioRef.current.addEventListener('canplay', onCanPlay);
-      } else {
-        await performSeekAndPlay();
-      }
       
+      if (willPlay) {
+        ensureAudioContext();
+        await new Promise(r => setTimeout(r, 80));
+        audioRef.current.volume = 0;
+        await audioRef.current.play();
+        setIsPlaying(true);
+        await new Promise(r => setTimeout(r, 50));
+        audioRef.current.muted = false;
+        await doFade(1, 200);
+        if (audioRef.current) audioRef.current.volume = 1; 
+      } else {
+        audioRef.current.muted = false;
+      }
     } catch (e) {
-      console.error("Seek Error:", e);
+      setIsPlaying(false);
       if (audioRef.current) audioRef.current.muted = false;
+    } finally {
+      isSeekingRef.current = false;
     }
   };
 
   const togglePlay = async (e) => {
     if (e) { e.preventDefault(); e.stopPropagation(); }
-    if (!audioRef.current) return;
-
+    if (!audioRef.current || isSeekingRef.current) return;
+    isSeekingRef.current = true;
     try {
       if (isPlaying) {
-        setIsPlaying(false); 
         await doFade(0, 150);
         audioRef.current.pause();
+        setIsPlaying(false);
       } else {
-        ensureAudioContext(); 
+        ensureAudioContext();
         audioRef.current.volume = 0;
-        setIsPlaying(true); 
         await audioRef.current.play();
+        setIsPlaying(true);
         await doFade(1, 200);
+        if (audioRef.current) audioRef.current.volume = 1; 
       }
     } catch (e) {
       console.error("Playback error:", e);
       setIsPlaying(false);
       if (audioRef.current) audioRef.current.volume = 1; 
+    } finally {
+      isSeekingRef.current = false;
     }
   };
 
   const changeTrack = async (direction) => {
+    if (isSeekingRef.current) return;
+    isSeekingRef.current = true;
     try {
-      if (isPlaying && audioRef.current) {
+      if (isPlaying) {
         await doFade(0, 150);
         audioRef.current.pause();
       }
       if (direction === 'next') setCurrentTrack(prev => (prev < 7 ? prev + 1 : 1));
       else setCurrentTrack(prev => (prev > 1 ? prev - 1 : 7));
-    } catch (e) {
-      console.error("Track Change Error:", e);
+    } finally {
+      isSeekingRef.current = false;
     }
   };
 
-  // --- 곡 변경 시 초기화 ---
+  // 곡 변경 시 자동 이어서 재생 엔진 (구버전 load() 포함 복원)
   useEffect(() => {
-    setCurrentTime(0);
-    setActiveLyricIndex(0);
+    if (audioRef.current && viewState === 'main') {
+      audioRef.current.pause();
+      audioRef.current.load();
+      setCurrentTime(0);
+      setActiveLyricIndex(0);
+      audioRef.current.muted = false;
+
+      if (isPlaying) {
+        ensureAudioContext();
+        audioRef.current.volume = 0;
+        const playPromise = audioRef.current.play();
+        if (playPromise !== undefined) {
+          playPromise.then(() => {
+            doFade(1, 200).then(() => {
+              if (audioRef.current) audioRef.current.volume = 1;
+            }); 
+          }).catch((error) => {
+            console.error("오토플레이 방지됨:", error);
+            setIsPlaying(false);
+          });
+        }
+      }
+    }
   }, [currentTrack]); 
+  // 💡 [초기 안정화 버전 완전 롤백] 오디오 엔진 파트 끝
 
   // --- [컨트롤 슬라이더 로직] ---
   const handlePointerDown = (e) => {
@@ -435,23 +426,12 @@ export default function AlbumPage() {
   return (
     <div ref={bgRef} className="min-h-screen text-gray-900 font-sans overflow-x-hidden relative" style={{ background: 'radial-gradient(circle at center, #FFFFFF 0%, #DDE1E5 var(--pulse-size, 100%))' }}>
       
+      {/* 💡 오리지널 오디오 태그 구버전 복원 */}
       <audio 
         ref={audioRef} 
         src={trackList[currentTrack - 1].음원} 
         crossOrigin="anonymous" 
-        onLoadedMetadata={(e) => {
-          setDuration(e.target.duration);
-          if (isPlaying && audioRef.current) {
-            ensureAudioContext();
-            audioRef.current.volume = 0;
-            audioRef.current.play().then(() => {
-              doFade(1, 200);
-            }).catch(err => {
-              console.error("Auto-play blocked by browser:", err);
-              setIsPlaying(false);
-            });
-          }
-        }}
+        onLoadedMetadata={(e) => setDuration(e.target.duration)} 
         onTimeUpdate={() => !isDragging && setCurrentTime(audioRef.current.currentTime)} 
         onEnded={() => changeTrack('next')} 
         preload="auto" 

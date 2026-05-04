@@ -51,7 +51,6 @@ export default function AlbumPage() {
   const lyricRefs = useRef([]);
   const fadeAnimationRef = useRef(null);
   const activeFadeResolve = useRef(null); 
-  const isSeekingRef = useRef(false); 
 
   // === 오디오 리액티브 & 배경 참조 ===
   const bgRef = useRef(null);
@@ -60,7 +59,7 @@ export default function AlbumPage() {
   const sourceRef = useRef(null);
   const dataArrayRef = useRef(null);
 
-  // --- 곡 정보 데이터 ---
+  // --- 곡 정보 데이터 (신규 가사 완벽 반영) ---
   const trackList = [
     { 
       번호: 1, 제목: "NONB - Fly again!", 
@@ -261,7 +260,7 @@ export default function AlbumPage() {
     });
   };
 
-  // 💡 [핵심 버그 수정] 모바일 호환성 극대화: seeked 이벤트 대기 (유령 소리, 팝 노이즈 차단)
+  // 💡 [핵심 버그 수정 1 & 2] 모바일 찌꺼기 완벽 차단 및 로딩 전 먹통 방지
   const executeSeek = async (newTime, forcePlay = false) => {
     if (!audioRef.current) return;
     
@@ -274,34 +273,59 @@ export default function AlbumPage() {
         audioRef.current.pause();
       }
       
-      audioRef.current.currentTime = newTime;
+      // UI 즉시 반영
       setCurrentTime(newTime);
       setIsDragging(false);
 
-      if (willPlay) {
-        ensureAudioContext(); 
-        setIsPlaying(true); 
-        
-        // 모바일 브라우저가 새 시간대의 오디오 버퍼를 완전히 디코딩할 때까지 대기
-        await new Promise((resolve) => {
-          const onSeeked = () => {
-            audioRef.current.removeEventListener('seeked', onSeeked);
-            resolve();
-          };
-          audioRef.current.addEventListener('seeked', onSeeked);
-          // 만약 모바일 브라우저가 이벤트를 씹을 경우를 대비한 300ms 최후의 보루
-          setTimeout(() => {
-            audioRef.current.removeEventListener('seeked', onSeeked);
-            resolve();
-          }, 300);
-        });
+      const performSeekAndPlay = async () => {
+        // 💡 찌꺼기 차단: 이동 전 하드웨어 레벨로 강제 무음 처리
+        audioRef.current.muted = true;
+        audioRef.current.currentTime = newTime;
 
-        audioRef.current.volume = 0;
-        await audioRef.current.play();
-        await doFade(1, 200);
+        if (willPlay) {
+          ensureAudioContext(); 
+          setIsPlaying(true); 
+          
+          // 모바일 버퍼 준비 대기
+          await new Promise((resolve) => {
+            const onSeeked = () => {
+              audioRef.current.removeEventListener('seeked', onSeeked);
+              resolve();
+            };
+            audioRef.current.addEventListener('seeked', onSeeked);
+            setTimeout(() => {
+              audioRef.current.removeEventListener('seeked', onSeeked);
+              resolve();
+            }, 300);
+          });
+
+          audioRef.current.volume = 0;
+          await audioRef.current.play();
+
+          // 💡 찌꺼기 방출 찰나(50ms) 대기 후 음소거 해제 및 페이드 인
+          setTimeout(async () => {
+            audioRef.current.muted = false;
+            await doFade(1, 200);
+          }, 50);
+        } else {
+          audioRef.current.muted = false;
+        }
+      };
+
+      // 💡 먹통 방지: 오디오가 아직 로드되지 않은 상태(readyState === 0) 처리
+      if (audioRef.current.readyState === 0) {
+        const onCanPlay = () => {
+          audioRef.current.removeEventListener('canplay', onCanPlay);
+          performSeekAndPlay();
+        };
+        audioRef.current.addEventListener('canplay', onCanPlay);
+      } else {
+        await performSeekAndPlay();
       }
+      
     } catch (e) {
       console.error("Seek Error:", e);
+      if (audioRef.current) audioRef.current.muted = false;
     }
   };
 
@@ -341,7 +365,7 @@ export default function AlbumPage() {
     }
   };
 
-  // --- 곡 변경 시 자동 이어서 재생 엔진 ---
+  // --- 곡 변경 시 초기화 ---
   useEffect(() => {
     setCurrentTime(0);
     setActiveLyricIndex(0);

@@ -51,18 +51,10 @@ export default function AlbumPage() {
   const lyricRefs = useRef([]);
   const fadeAnimationRef = useRef(null);
   const activeFadeResolve = useRef(null); 
-  // 💡 구버전의 핵심 방패: 재생/이동 중 연타 방지 락(Lock) 원복
   const isSeekingRef = useRef(false); 
-
-  // === 배경 참조 ===
   const bgRef = useRef(null);
-  // 💡 [궁극의 해결책 1] 배경 애니메이션 삭제로 오디오 리액티브 관련 코드 전부 제거
-  const audioCtxRef = useRef(null);
-  const analyserRef = useRef(null);
-  const sourceRef = useRef(null);
-  const dataArrayRef = useRef(null);
 
-  // --- 곡 정보 데이터 (수동 줄바꿈 데이터 적용 완료) ---
+  // --- 곡 정보 데이터 (수동 줄바꿈 가사 적용 버전) ---
   const trackList = [
     { 
       번호: 1, 제목: "NONB - Fly again!", 
@@ -141,10 +133,8 @@ export default function AlbumPage() {
   const handleLogin = async (e) => {
     e.preventDefault();
     if (pinInput.length !== 6) return;
-    
     const saltedInput = `${urlParams.token}_${pinInput}`;
     const hashedInput = await hashString(saltedInput);
-    
     if (hashedInput === buyerInfo.hash) {
       setViewState('intro');
     } else {
@@ -162,9 +152,7 @@ export default function AlbumPage() {
     }
   }, [viewState]);
 
-  // --- [궁극의 해결책 1] 배경 애니메이션 완전 비활성화로 오디오 Context 및 리액티브 코드 삭제 ---
-
-  // 💡 [구버전 오디오 엔진 완전 롤백 복원] 오디오 엔진 파트 시작
+  // --- 오디오 엔진: 페이드 인/아웃 정밀 제어 ---
   const doFade = (targetVolume, durationMs = 150) => {
     return new Promise(resolve => {
       if (!audioRef.current) return resolve();
@@ -175,7 +163,7 @@ export default function AlbumPage() {
       const startVolume = audioRef.current.volume;
       const volumeDiff = targetVolume - startVolume;
 
-      if (Math.abs(volumeDiff) < 0.01) {
+      if (Math.abs(volumeDiff) < 0.001) {
         audioRef.current.volume = targetVolume;
         activeFadeResolve.current = null;
         return resolve();
@@ -185,12 +173,16 @@ export default function AlbumPage() {
       const animate = (time) => {
         const elapsed = time - startTime;
         const progress = Math.min(elapsed / durationMs, 1);
-        audioRef.current.volume = Math.max(0, Math.min(1, startVolume + (volumeDiff * progress)));
+        
+        // 💡 부드러운 로그 곡선(Logarithmic) 느낌을 위한 단순 선형 보간
+        if (audioRef.current) {
+            audioRef.current.volume = Math.max(0, Math.min(1, startVolume + (volumeDiff * progress)));
+        }
         
         if (progress < 1) {
           fadeAnimationRef.current = requestAnimationFrame(animate);
         } else {
-          audioRef.current.volume = Math.max(0, Math.min(1, targetVolume));
+          if (audioRef.current) audioRef.current.volume = targetVolume;
           fadeAnimationRef.current = null;
           activeFadeResolve.current = null;
           resolve();
@@ -200,39 +192,49 @@ export default function AlbumPage() {
     });
   };
 
-  // 💡 [궁극의 해결책 2] 오디오 settle 타임 강화 (유령 소리 틀어막기)
+  // 💡 [핵심 버그 수정] 페이드 인을 확실히 들리게 하고 팝 노이즈를 제거한 정밀 시퀀스
   const executeSeek = async (newTime, forcePlay = false) => {
-    // 가장 단단했던 오리지널 방어막 복원: 연타 방지
     if (!audioRef.current || isSeekingRef.current) return;
-    
-    // 💡 단 하나의 추가 코드: 로딩 전 가사 클릭 시 앱 멈춤 방지
     if (audioRef.current.readyState === 0) return;
 
     isSeekingRef.current = true;
     const wasPlaying = isPlaying;
     const willPlay = wasPlaying || forcePlay;
+
     try {
-      if (wasPlaying) await doFade(0, 150);
+      if (wasPlaying) {
+          await doFade(0, 150); // 페이드 아웃
+          audioRef.current.pause();
+      }
+      
+      // 💡 1단계: 하드웨어 뮤트 후 시간 이동
       audioRef.current.muted = true;
-      if (wasPlaying) audioRef.current.pause();
       audioRef.current.currentTime = newTime;
       setCurrentTime(newTime);
       setIsDragging(false);
       
       if (willPlay) {
-        // 배경 애니메이션 엔진이 없어졌으므로Context()도 필요 없음
-        await new Promise(r => setTimeout(r, 150)); // 💡 settle 타임 강화: 80ms -> 150ms
+        // 💡 2단계: 볼륨을 0으로 선제 고정 (팝 노이즈 원천 차단)
         audioRef.current.volume = 0;
+        
+        // 모바일 브라우저 안정화 대기
+        await new Promise(r => setTimeout(r, 150));
+        
+        // 💡 3단계: 재생 시작
         await audioRef.current.play();
         setIsPlaying(true);
-        await new Promise(r => setTimeout(r, 100)); // 💡 무음 씹어먹기 타임 강화: 50ms -> 100ms
+        
+        // 💡 4단계: 재생 시작 후 아주 짧은 찰나(80ms) 뒤 뮤트 해제 (찌꺼기 소리 씹기)
+        await new Promise(r => setTimeout(r, 80));
         audioRef.current.muted = false; 
-        await doFade(1, 200);
-        if (audioRef.current) audioRef.current.volume = 1; 
+        
+        // 💡 5단계: 들리는 페이드 인 시작 (400ms로 늘려 부드러움 확보)
+        await doFade(1, 400); 
       } else {
         audioRef.current.muted = false;
       }
     } catch (e) {
+      console.error("Seek Error:", e);
       setIsPlaying(false);
       if (audioRef.current) audioRef.current.muted = false;
     } finally {
@@ -250,12 +252,12 @@ export default function AlbumPage() {
         audioRef.current.pause();
         setIsPlaying(false);
       } else {
-        // 배경 애니메이션 엔진이 없어졌으므로Context()도 필요 없음
+        // 💡 시작 시에도 확실한 페이드 인 적용
         audioRef.current.volume = 0;
+        audioRef.current.muted = false;
         await audioRef.current.play();
         setIsPlaying(true);
-        await doFade(1, 200);
-        if (audioRef.current) audioRef.current.volume = 1; 
+        await doFade(1, 400); 
       }
     } catch (e) {
       console.error("Playback error:", e);
@@ -281,33 +283,21 @@ export default function AlbumPage() {
     }
   };
 
-  // 곡 변경 시 자동 이어서 재생 엔진 (구버전 load() 포함 복원)
   useEffect(() => {
     if (audioRef.current && viewState === 'main') {
       audioRef.current.pause();
-      audioRef.current.load(); // 💡 구버전의load() 명령어 복원
+      audioRef.current.load();
       setCurrentTime(0);
       setActiveLyricIndex(0);
       audioRef.current.muted = false;
-
       if (isPlaying) {
-        // 배경 애니메이션 엔진이 없어졌으므로Context()도 필요 없음
         audioRef.current.volume = 0;
-        const playPromise = audioRef.current.play();
-        if (playPromise !== undefined) {
-          playPromise.then(() => {
-            doFade(1, 200).then(() => {
-              if (audioRef.current) audioRef.current.volume = 1;
-            }); 
-          }).catch((error) => {
-            console.error("오토플레이 방지됨:", error);
-            setIsPlaying(false);
-          });
-        }
+        audioRef.current.play().then(() => {
+          doFade(1, 400);
+        }).catch(() => setIsPlaying(false));
       }
     }
   }, [currentTrack]); 
-  // 💡 [구버전 오디오 엔진 완전 롤백 복원] 오디오 엔진 파트 끝
 
   // --- [컨트롤 슬라이더 로직] ---
   const handlePointerDown = (e) => {
@@ -317,13 +307,11 @@ export default function AlbumPage() {
     const pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
     setCurrentTime(pos * duration);
   };
-
   const handleDrag = (e) => {
     const rect = progressBarRef.current.getBoundingClientRect();
     const pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
     setCurrentTime(pos * duration);
   };
-
   const handlePointerUp = (e) => {
     e.currentTarget.releasePointerCapture(e.pointerId);
     const rect = progressBarRef.current.getBoundingClientRect();
@@ -331,11 +319,9 @@ export default function AlbumPage() {
     const newTime = pos * duration;
     executeSeek(newTime, false);
   };
-
   const seekTo = (time) => {
     executeSeek(time, true);
   };
-
   const formatTime = (time) => {
     if (!time || isNaN(time)) return "0:00";
     const min = Math.floor(time / 60);
@@ -351,7 +337,6 @@ export default function AlbumPage() {
       if (index !== -1 && index !== activeLyricIndex) setActiveLyricIndex(index);
     }
   }, [currentTime, currentTrack, isDragging, viewState]);
-
   useEffect(() => {
     if (isAutoScroll && lyricRefs.current[activeLyricIndex] && !isDragging && viewState === 'main' && showLyrics) {
       lyricRefs.current[activeLyricIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -360,7 +345,6 @@ export default function AlbumPage() {
 
   // --- 화면 렌더링 ---
   if (viewState === 'loading') return <div className="min-h-screen" style={{ background: 'radial-gradient(circle at center, #FFFFFF 0%, #DDE1E5 100%)' }} />;
-  
   if (viewState === 'invalid') return (
     <div className="min-h-screen flex items-center justify-center p-6 text-center text-gray-900 font-sans" style={{ background: 'radial-gradient(circle at center, #FFFFFF 0%, #DDE1E5 100%)' }}>
       <div className="animate-fade-in">
@@ -371,10 +355,7 @@ export default function AlbumPage() {
   );
 
   return (
-    // 💡 [궁극의 해결책 1] 배경 애니메이션 완전 비활성화로 static 그라디언트 적용
     <div ref={bgRef} className="min-h-screen text-gray-900 font-sans overflow-x-hidden relative" style={{ background: 'radial-gradient(circle at center, #FFFFFF 0%, #DDE1E5 100%)' }}>
-      
-      {/* 💡 [구버전 오리지널 오디오 태그 구버전 복원] */}
       <audio 
         ref={audioRef} 
         src={trackList[currentTrack - 1].음원} 
@@ -399,19 +380,9 @@ export default function AlbumPage() {
               <p className="text-[#E63946]/60 text-[10px] tracking-widest font-mono uppercase">Buyer No. {buyerInfo?.number}</p>
             </div>
             <form onSubmit={handleLogin} className="space-y-8 pt-4">
-              <input 
-                type="password" 
-                inputMode="numeric" 
-                maxLength={6} 
-                value={pinInput} 
-                onChange={(e) => setPinInput(e.target.value.replace(/[^0-9]/g, ''))} 
-                placeholder="••••••" 
-                className="w-full bg-transparent border-b-2 border-gray-400 text-gray-900 text-center px-4 py-4 focus:outline-none focus:border-[#E63946] transition-all tracking-[0.8em] text-3xl font-light placeholder-gray-300" 
-              />
+              <input type="password" inputMode="numeric" maxLength={6} value={pinInput} onChange={(e) => setPinInput(e.target.value.replace(/[^0-9]/g, ''))} placeholder="••••••" className="w-full bg-transparent border-b-2 border-gray-400 text-gray-900 text-center px-4 py-4 focus:outline-none focus:border-[#E63946] transition-all tracking-[0.8em] text-3xl font-light placeholder-gray-300" />
               {loginError && <p className="text-[#E63946] text-[10px] tracking-wider font-bold">{loginError}</p>}
-              <button type="submit" className="w-full bg-[#E63946] text-white font-bold py-4 rounded-xl active:scale-95 transition-all text-sm tracking-widest shadow-lg shadow-[#E63946]/30 hover:bg-[#D62828]">
-                ACCESS NOW
-              </button>
+              <button type="submit" className="w-full bg-[#E63946] text-white font-bold py-4 rounded-xl active:scale-95 transition-all text-sm tracking-widest shadow-lg shadow-[#E63946]/30 hover:bg-[#D62828]">ACCESS NOW</button>
             </form>
           </div>
         </div>
@@ -431,7 +402,6 @@ export default function AlbumPage() {
       {/* 3. 메인 플레이어 */}
       {viewState === 'main' && (
         <div className="animate-fade-in pb-56">
-          
           <div className="sticky top-0 z-40 bg-white/70 backdrop-blur-xl border-b border-white/50 flex justify-center space-x-12 p-5 shadow-sm">
             <button onClick={() => setCurrentTab('메인')} className={`font-bold transition-colors ${currentTab === '메인' ? 'text-[#E63946] border-b-2 border-[#E63946] pb-1' : 'text-gray-500 hover:text-gray-800'}`}>Main</button>
             <button onClick={() => setCurrentTab('비하인드')} className={`font-bold transition-colors ${currentTab === '비하인드' ? 'text-[#E63946] border-b-2 border-[#E63946] pb-1' : 'text-gray-500 hover:text-gray-800'}`}>Behind</button>
@@ -439,7 +409,6 @@ export default function AlbumPage() {
 
           {currentTab === '메인' && (
             <div className="p-4 max-w-xl mx-auto space-y-6 mt-4">
-              
               <div className="bg-[#E63946]/10 border border-[#E63946]/20 text-[#E63946] text-xs font-bold text-center py-2.5 rounded-full tracking-widest shadow-sm">
                 NO.{buyerInfo?.number} 구매자님을 위한 Pro;logue
               </div>
@@ -460,74 +429,37 @@ export default function AlbumPage() {
                 </div>
               </div>
 
-              {/* 앨범아트 ↔ 가사 크로스페이드 트랜지션 영역 */}
               <div className="bg-white/40 backdrop-blur-md rounded-3xl border border-white/60 relative min-h-[480px] shadow-lg overflow-hidden">
-                
-                {/* --- 앨범아트 모드 --- */}
                 <div className={`absolute inset-0 p-8 pb-16 flex items-center justify-center transition-all duration-700 ease-in-out ${showLyrics ? 'opacity-0 scale-95 pointer-events-none' : 'opacity-100 scale-100'}`}>
                    <div className="w-full max-w-[280px] aspect-square bg-gray-200 rounded-[2rem] shadow-2xl border-4 border-white/80 overflow-hidden relative flex items-center justify-center">
                       <img src={trackList[currentTrack - 1].앨범아트} alt="Album Art" className="w-full h-full object-cover" />
                    </div>
                 </div>
 
-                {/* --- 가사 모드 --- */}
                 <div className={`absolute inset-0 p-8 flex flex-col pb-6 transition-all duration-700 ease-in-out ${showLyrics ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8 pointer-events-none'}`}>
                   <div className="w-full flex justify-between items-center mb-6 shrink-0">
-                    <h1 className="text-xl font-bold text-[#E63946] tracking-wider drop-shadow-sm truncate pr-4">
-                      {trackList[currentTrack - 1].제목}
-                    </h1>
-                    <button onClick={() => setIsAutoScroll(!isAutoScroll)} className={`text-[8px] px-3 py-1.5 rounded-full border tracking-widest transition-all shrink-0 ${isAutoScroll ? 'bg-[#E63946] text-white border-[#E63946] font-bold shadow-sm' : 'text-gray-500 border-gray-300 bg-white/50'}`}>
-                      AUTO
-                    </button>
+                    <h1 className="text-xl font-bold text-[#E63946] tracking-wider drop-shadow-sm truncate pr-4">{trackList[currentTrack - 1].제목}</h1>
+                    <button onClick={() => setIsAutoScroll(!isAutoScroll)} className={`text-[8px] px-3 py-1.5 rounded-full border tracking-widest transition-all shrink-0 ${isAutoScroll ? 'bg-[#E63946] text-white border-[#E63946] font-bold shadow-sm' : 'text-gray-500 border-gray-300 bg-white/50'}`}>AUTO</button>
                   </div>
-                  
                   <div ref={lyricContainerRef} className="w-full flex-grow overflow-y-auto overflow-x-hidden space-y-8 px-2 scrollbar-hide py-16">
                     {trackList[currentTrack - 1].가사데이터.map((lyric, index) => (
-                      <div 
-                        key={index} 
-                        ref={el => lyricRefs.current[index] = el} 
-                        onClick={() => seekTo(lyric.시간)} 
-                        className={`transition-all duration-500 ease-out transform-gpu text-center py-2 cursor-pointer break-keep whitespace-pre-wrap leading-relaxed text-lg font-bold origin-center ${
-                          !isAutoScroll 
-                            ? (activeLyricIndex === index ? 'text-[#1A1A1A] opacity-100' : 'text-gray-500 opacity-100 hover:text-gray-800')
-                            : (activeLyricIndex === index ? 'text-[#1A1A1A] scale-[1.25] opacity-100 drop-shadow-sm' : 'text-gray-400 opacity-40 scale-100')
-                        }`}
-                        style={{ willChange: 'transform, opacity, color' }}
-                      >
-                        {lyric.내용}
-                      </div>
+                      <div key={index} ref={el => lyricRefs.current[index] = el} onClick={() => seekTo(lyric.시간)} className={`transition-all duration-500 ease-out transform-gpu text-center py-2 cursor-pointer break-keep whitespace-pre-wrap leading-relaxed text-lg font-bold origin-center ${!isAutoScroll ? (activeLyricIndex === index ? 'text-[#1A1A1A] opacity-100' : 'text-gray-500 opacity-100 hover:text-gray-800') : (activeLyricIndex === index ? 'text-[#1A1A1A] scale-[1.25] opacity-100 drop-shadow-sm' : 'text-gray-400 opacity-40 scale-100')}`} style={{ willChange: 'transform, opacity, color' }}>{lyric.내용}</div>
                     ))}
                   </div>
                 </div>
-
               </div>
             </div>
           )}
 
           {currentTab === '비하인드' && (
-            <div className="p-20 text-center animate-pulse">
-              <p className="text-gray-500 text-xs tracking-[0.5em] uppercase font-bold">Loading Archive...</p>
-            </div>
+            <div className="p-20 text-center animate-pulse"><p className="text-gray-500 text-xs tracking-[0.5em] uppercase font-bold">Loading Archive...</p></div>
           )}
 
-          {/* 하단 플레이어 (수직 스택 구조) */}
           <div className={`fixed bottom-0 left-0 right-0 z-50 flex justify-center pointer-events-none transition-transform duration-500 ${isMinimized ? 'translate-y-[calc(100%-60px)]' : 'translate-y-0'}`}>
             <div className="w-full max-w-md bg-white/70 border-t border-white/80 rounded-t-[2.5rem] shadow-[0_-15px_40px_rgba(0,0,0,0.06)] backdrop-blur-2xl pointer-events-auto flex flex-col px-8 pb-10">
-              
-              <div onClick={() => setIsMinimized(!isMinimized)} className="w-full h-10 flex items-center justify-center cursor-pointer active:opacity-40">
-                <div className="w-10 h-1.5 bg-gray-300 rounded-full" />
-              </div>
-              
+              <div onClick={() => setIsMinimized(!isMinimized)} className="w-full h-10 flex items-center justify-center cursor-pointer active:opacity-40"><div className="w-10 h-1.5 bg-gray-300 rounded-full" /></div>
               <div className="space-y-6">
-                
-                {/* 1층: 곡 제목 (중앙) */}
-                <div className="text-center px-4">
-                  <div className="text-[#E63946] font-bold text-sm tracking-widest uppercase drop-shadow-sm truncate">
-                    {trackList[currentTrack - 1].제목}
-                  </div>
-                </div>
-
-                {/* 2층: 진행 바 (페이더) */}
+                <div className="text-center px-4"><div className="text-[#E63946] font-bold text-sm tracking-widest uppercase drop-shadow-sm truncate">{trackList[currentTrack - 1].제목}</div></div>
                 <div className="flex flex-col space-y-3">
                   <div ref={progressBarRef} onPointerDown={(e) => { setIsDragging(true); handlePointerDown(e); }} onPointerMove={(e) => isDragging && handleDrag(e)} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp} className="h-6 flex items-center cursor-pointer relative touch-none group">
                     <div className="h-1.5 bg-gray-300 w-full rounded-full shadow-inner"><div className="h-full bg-[#E63946] rounded-full" style={{ width: (duration ? (currentTime / duration * 100) : 0) + '%' }} /></div>
@@ -535,39 +467,15 @@ export default function AlbumPage() {
                   </div>
                   <div className="flex justify-between text-[10px] font-mono text-gray-500 font-medium tracking-tighter px-1"><span>{formatTime(currentTime)}</span><span>{formatTime(duration)}</span></div>
                 </div>
-                
-                {/* 3층: 컨트롤러 (이전/재생/다음 & 가사 토글) */}
                 <div className="flex items-center justify-center relative pt-2">
                   <div className="flex items-center space-x-10">
-                    <button onClick={() => changeTrack('prev')} className="text-gray-500 hover:text-gray-800 active:scale-75 transition-all">
-                      <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
-                    </button>
-                    
-                    <button onClick={togglePlay} className="text-[#E63946] active:scale-90 transition-transform drop-shadow-lg hover:text-[#D62828]">
-                      {isPlaying ? (
-                        <svg width="52" height="52" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
-                      ) : (
-                        <svg width="52" height="52" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-                      )}
-                    </button>
-                    
-                    <button onClick={() => changeTrack('next')} className="text-gray-500 hover:text-gray-800 active:scale-75 transition-all">
-                      <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M16 6h2v12h-2zm-10.5 0l8.5 6-8.5 6z"/></svg>
-                    </button>
+                    <button onClick={() => changeTrack('prev')} className="text-gray-500 hover:text-gray-800 active:scale-75 transition-all"><svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg></button>
+                    <button onClick={togglePlay} className="text-[#E63946] active:scale-90 transition-transform drop-shadow-lg hover:text-[#D62828]">{isPlaying ? <svg width="52" height="52" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg> : <svg width="52" height="52" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>}</button>
+                    <button onClick={() => changeTrack('next')} className="text-gray-500 hover:text-gray-800 active:scale-75 transition-all"><svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M16 6h2v12h-2zm-10.5 0l8.5 6-8.5 6z"/></svg></button>
                   </div>
-                  
-                  {/* 가사 토글 버튼 */}
-                  <button 
-                    onClick={() => setShowLyrics(!showLyrics)} 
-                    className={`absolute right-0 p-2 transition-all active:scale-90 ${showLyrics ? 'text-[#E63946] drop-shadow-md' : 'text-gray-400 hover:text-gray-800'}`}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM9.5 13H8c0-1.5 1.5-3 1.5-3V8H7v5h1.5S8.5 14.5 7 14.5V16c2 0 2.5-3 2.5-3zm6 0H14c0-1.5 1.5-3 1.5-3V8h-2v5h1.5s0 1.5-1.5 1.5V16c2 0 2.5-3 2.5-3z"/>
-                    </svg>
-                  </button>
+                  <button onClick={() => setShowLyrics(!showLyrics)} className={`absolute right-0 p-2 transition-all active:scale-90 ${showLyrics ? 'text-[#E63946] drop-shadow-md' : 'text-gray-400 hover:text-gray-800'}`}><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM9.5 13H8c0-1.5 1.5-3 1.5-3V8H7v5h1.5S8.5 14.5 7 14.5V16c2 0 2.5-3 2.5-3zm6 0H14c0-1.5 1.5-3 1.5-3V8h-2v5h1.5s0 1.5-1.5 1.5V16c2 0 2.5-3 2.5-3z"/></svg></button>
                 </div>
               </div>
-
             </div>
           </div>
         </div>

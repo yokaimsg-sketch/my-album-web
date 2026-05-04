@@ -60,7 +60,8 @@ export default function AlbumPage() {
   const sourceRef = useRef(null);
   const dataArrayRef = useRef(null);
 
-  // --- 곡 정보 데이터 (1번 트랙 앨범아트 로컬 경로 반영) ---
+  // --- 곡 정보 데이터 ---
+  // 💡 가사에 \n 을 넣으시면 수동으로 예쁘게 줄바꿈이 적용됩니다. (아래는 원본 유지)
   const trackList = [
     { 
       번호: 1, 제목: "NONB - Fly again!", 
@@ -72,9 +73,9 @@ export default function AlbumPage() {
         { 시간: 47.5, 내용: "나에게 또 소리쳐와" },
         { 시간: 54.5, 내용: "난 왜 흘러가는 시간 속에서" },
         { 시간: 61, 내용: "되돌아보는 날들만이 늘어날까" },
-        { 시간: 67.5, 내용: "아직 늦지 않았으니까 걱정은 하지 마" },
-        { 시간: 74.5, 내용: "끝까지 선명하게 비춰주고 있으니까" },
-        { 시간: 81, 내용: "눈 감으면 저 멀리 펼쳐지는 하늘에" },
+        { 시간: 67.5, 내용: "아직 늦지 않았으니까\n걱정은 하지 마" },
+        { 시간: 74.5, 내용: "끝까지 선명하게\n비춰주고 있으니까" },
+        { 시간: 81, 내용: "눈 감으면 저 멀리\n펼쳐지는 하늘에" },
         { 시간: 87.5, 내용: "잠깐 동안의 우리 세상으로" },
         { 시간: 97, 내용: "Fly again!" },
         { 시간: 103.5, 내용: "Fly again!" },
@@ -82,20 +83,20 @@ export default function AlbumPage() {
         { 시간: 115.5, 내용: "뒤돌아선" },
         { 시간: 119, 내용: "모습에 소리쳐봐" },
         { 시간: 122, 내용: "난 왜 지나가는 시간 속에서" },
-        { 시간: 129, 내용: "후회하는 날들만이 늘어날까" },
-        { 시간: 135, 내용: "아직 늦지 않았으니까 걱정은 하지 마" },
-        { 시간: 142, 내용: "끝까지 선명하게 비춰주고 있으니까" },
-        { 시간: 148.5, 내용: "눈 감으면 저 멀리 펼쳐지는 하늘에" },
-        { 시간: 155, 내용: "잠깐 동안의 우리 세상으로" },
+        { 시간: 129, 내용: "후회하는 날들만이\n늘어날까" },
+        { 시간: 135, 내용: "아직 늦지 않았으니까\n걱정은 하지 마" },
+        { 시간: 142, 내용: "끝까지 선명하게\n비춰주고 있으니까" },
+        { 시간: 148.5, 내용: "눈 감으면 저 멀리\n펼쳐지는 하늘에" },
+        { 시간: 155, 내용: "잠깐 동안의\n우리 세상으로" },
         { 시간: 161, 내용: "날아가 보는 거야" },
         { 시간: 164, 내용: "우리 어떤 모습이라도" },
         { 시간: 168.5, 내용: "결국 함께라면" },
         { 시간: 171.5, 내용: "끝은 나지 않을 거야" },
         { 시간: 177, 내용: "아무리 높은 벽이 있어도" },
         { 시간: 181.5, 내용: "우리 세상으로 날아가" },
-        { 시간: 188.5, 내용: "아직 늦지 않았으니까 걱정은 하지 마" },
-        { 시간: 195, 내용: "이 길의 끝에서 우리 함께 만날 거니까" },
-        { 시간: 201.5, 내용: "눈을 뜨면 그 앞에 펼쳐지는 하늘에" },
+        { 시간: 188.5, 내용: "아직 늦지 않았으니까\n걱정은 하지 마" },
+        { 시간: 195, 내용: "이 길의 끝에서 우리\n함께 만날 거니까" },
+        { 시간: 201.5, 내용: "눈을 뜨면 그 앞에\n펼쳐지는 하늘에" },
         { 시간: 208, 내용: "끝이 없는 우리 세상으로" },
         { 시간: 214, 내용: "날아가 보는 거야" },
         { 시간: 218, 내용: "Fly again!" },
@@ -520,11 +521,12 @@ export default function AlbumPage() {
                         key={index} 
                         ref={el => lyricRefs.current[index] = el} 
                         onClick={() => seekTo(lyric.시간)} 
-                        // 💡 변경점: transform-gpu 추가 및 duration 최적화로 애니메이션 버벅임 완벽 해소
-                        className={`transition-all duration-500 ease-out transform-gpu text-center py-2 cursor-pointer break-keep whitespace-pre-wrap leading-relaxed ${
+                        // 💡 [변경점] 폰트 크기(text-lg)와 굵기(font-bold)를 모두 통일하고 오직 확대(scale)만 사용!
+                        // transform-gpu 속성과 will-change를 결합해 프레임 드랍(레이아웃 스래싱) 완벽 제거
+                        className={`transition-all duration-500 ease-out transform-gpu text-center py-2 cursor-pointer break-keep whitespace-pre-wrap leading-relaxed text-lg font-bold origin-center ${
                           !isAutoScroll 
-                            ? (activeLyricIndex === index ? 'text-[#1A1A1A] font-bold opacity-100' : 'text-gray-500 font-medium opacity-100 hover:text-gray-800')
-                            : (activeLyricIndex === index ? 'text-[#1A1A1A] text-2xl font-bold scale-110 opacity-100 drop-shadow-sm' : 'text-gray-400 font-medium opacity-40 scale-100')
+                            ? (activeLyricIndex === index ? 'text-[#1A1A1A] opacity-100' : 'text-gray-500 opacity-100 hover:text-gray-800')
+                            : (activeLyricIndex === index ? 'text-[#1A1A1A] scale-[1.25] opacity-100 drop-shadow-sm' : 'text-gray-400 opacity-40 scale-100')
                         }`}
                         style={{ willChange: 'transform, opacity' }}
                       >

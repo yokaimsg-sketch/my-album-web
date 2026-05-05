@@ -21,6 +21,59 @@ const BUYER_DATA = {
   }
 };
 
+// 💡 [수정 4] 매 렌더링마다 배열이 새로 생성되는 것을 막기 위해 컴포넌트 외부로 분리
+const trackList = [
+  { 
+    번호: 1, 제목: "NONB - Fly again!", 
+    앨범아트: "/cover1.jpg", 
+    가사데이터: [
+      { 시간: 28, 내용: "꿈속 만난 나의 모습" },
+      { 시간: 34.5, 내용: "그 모습이 아른거려" },
+      { 시간: 41, 내용: "끝이 없는 반복들이" },
+      { 시간: 47.5, 내용: "나에게 또 소리쳐와" },
+      { 시간: 54.5, 내용: "난 왜 흘러가는 시간 속에서" },
+      { 시간: 61, 내용: "되돌아보는 날들만이\n늘어날까" },
+      { 시간: 67.5, 내용: "아직 늦지 않았으니까\n걱정은 하지 마" },
+      { 시간: 74.5, 내용: "끝까지 선명하게\n비춰주고 있으니까" },
+      { 시간: 81, 내용: "눈 감으면 저 멀리\n펼쳐지는 하늘에" },
+      { 시간: 87.5, 내용: "잠깐 동안의 우리 세상으로" },
+      { 시간: 97, 내용: "Fly again!" },
+      { 시간: 103.5, 내용: "Fly again!" },
+      { 시간: 109, 내용: "꿈속 만난 나의 모습" },
+      { 시간: 115.5, 내용: "뒤돌아선" },
+      { 시간: 119, 내용: "모습에 소리쳐봐" },
+      { 시간: 122, 내용: "난 왜 지나가는 시간 속에서" },
+      { 시간: 129, 내용: "후회하는 날들만이\n늘어날까" },
+      { 시간: 135, 내용: "아직 늦지 않았으니까\n걱정은 하지 마" },
+      { 시간: 142, 내용: "끝까지 선명하게\n비춰주고 있으니까" },
+      { 시간: 148.5, 내용: "눈 감으면 저 멀리\n펼쳐지는 하늘에" },
+      { 시간: 155, 내용: "잠깐 동안의\n우리 세상으로" },
+      { 시간: 161, 내용: "날아가 보는 거야" },
+      { 시간: 164, 내용: "우리 어떤 모습이라도" },
+      { 시간: 168.5, 내용: "결국 함께라면" },
+      { 시간: 171.5, 내용: "끝은 나지 않을 거야" },
+      { 시간: 177, 내용: "아무리 높은 벽이 있어도" },
+      { 시간: 181.5, 내용: "우리 세상으로 날아가" },
+      { 시간: 188.5, 내용: "아직 늦지 않았으니까\n걱정은 하지 마" },
+      { 시간: 195, 내용: "이 길의 끝에서 우리\n함께 만날 거니까" },
+      { 시간: 201.5, 내용: "눈을 뜨면 그 앞에\n펼쳐지는 하늘에" },
+      { 시간: 208, 내용: "끝이 없는 우리 세상으로" },
+      { 시간: 214, 내용: "날아가 보는 거야" },
+      { 시간: 218, 내용: "Fly again!" },
+      { 시간: 224, 내용: "Fly again!" },
+      { 시간: 231, 내용: "Fly again!" },
+      { 시간: 238, 내용: "Fly again!" },
+    ],
+    음원: "https://pub-eb7063c1256b42148f33d95d25411e8c.r2.dev/track1.wav" 
+  },
+  { 번호: 2, 제목: "수록곡 2", 앨범아트: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=500", 가사데이터: [{ 시간: 0, 내용: "두 번째 트랙 가사입니다." }], 음원: "https://pub-eb7063c1256b42148f33d95d25411e8c.r2.dev/track2.wav" },
+  { 번호: 3, 제목: "수록곡 3", 앨범아트: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=500", 가사데이터: [{ 시간: 0, 내용: "준비 중..." }], 음원: "https://pub-eb7063c1256b42148f33d95d25411e8c.r2.dev/track3.wav" },
+  { 번호: 4, 제목: "수록곡 4", 앨범아트: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=500", 가사데이터: [{ 시간: 0, 내용: "준비 중..." }], 음원: "https://pub-eb7063c1256b42148f33d95d25411e8c.r2.dev/track4.wav" },
+  { 번호: 5, 제목: "수록곡 5", 앨범아트: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=500", 가사데이터: [{ 시간: 0, 내용: "준비 중..." }], 음원: "https://pub-eb7063c1256b42148f33d95d25411e8c.r2.dev/track5.wav" },
+  { 번호: 6, 제목: "수록곡 6", 앨범아트: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=500", 가사데이터: [{ 시간: 0, 내용: "준비 중..." }], 음원: "https://pub-eb7063c1256b42148f33d95d25411e8c.r2.dev/track6.wav" },
+  { 번호: 7, 제목: "수록곡 7", 앨범아트: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=500", 가사데이터: [{ 시간: 0, 내용: "준비 중..." }], 음원: "https://pub-eb7063c1256b42148f33d95d25411e8c.r2.dev/track7.wav" },
+];
+
 export default function AlbumPage() {
   // === 시스템 상태 ===
   const [viewState, setViewState] = useState('loading'); 
@@ -36,7 +89,7 @@ export default function AlbumPage() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  const isMuted = false; 
+  // 💡 [수정 8] 데드코드 삭제 완료 (const isMuted = false;)
   const [isListOpen, setIsListOpen] = useState(false);
   const [isAutoScroll, setIsAutoScroll] = useState(true);
   const [activeLyricIndex, setActiveLyricIndex] = useState(0);
@@ -52,62 +105,25 @@ export default function AlbumPage() {
   const fadeAnimationRef = useRef(null);
   const activeFadeResolve = useRef(null); 
   const isSeekingRef = useRef(false); 
+  const bgRef = useRef(null); 
 
-  // === 배경 참조 ===
-  const bgRef = useRef(null);
+  // 디지털 믹서 참조
+  const audioCtxRef = useRef(null);
+  const gainNodeRef = useRef(null);
+  const sourceRef = useRef(null);
 
-  // --- 곡 정보 데이터 (수동 줄바꿈 가사 적용 버전) ---
-  const trackList = [
-    { 
-      번호: 1, 제목: "NONB - Fly again!", 
-      앨범아트: "/cover1.jpg", 
-      가사데이터: [
-        { 시간: 28, 내용: "꿈속 만난 나의 모습" },
-        { 시간: 34.5, 내용: "그 모습이 아른거려" },
-        { 시간: 41, 내용: "끝이 없는 반복들이" },
-        { 시간: 47.5, 내용: "나에게 또 소리쳐와" },
-        { 시간: 54.5, 내용: "난 왜 흘러가는 시간 속에서" },
-        { 시간: 61, 내용: "되돌아보는 날들만이\n늘어날까" },
-        { 시간: 67.5, 내용: "아직 늦지 않았으니까\n걱정은 하지 마" },
-        { 시간: 74.5, 내용: "끝까지 선명하게\n비춰주고 있으니까" },
-        { 시간: 81, 내용: "눈 감으면 저 멀리\n펼쳐지는 하늘에" },
-        { 시간: 87.5, 내용: "잠깐 동안의 우리 세상으로" },
-        { 시간: 97, 내용: "Fly again!" },
-        { 시간: 103.5, 내용: "Fly again!" },
-        { 시간: 109, 내용: "꿈속 만난 나의 모습" },
-        { 시간: 115.5, 내용: "뒤돌아선" },
-        { 시간: 119, 내용: "모습에 소리쳐봐" },
-        { 시간: 122, 내용: "난 왜 지나가는 시간 속에서" },
-        { 시간: 129, 내용: "후회하는 날들만이\n늘어날까" },
-        { 시간: 135, 내용: "아직 늦지 않았으니까\n걱정은 하지 마" },
-        { 시간: 142, 내용: "끝까지 선명하게\n비춰주고 있으니까" },
-        { 시간: 148.5, 내용: "눈 감으면 저 멀리\n펼쳐지는 하늘에" },
-        { 시간: 155, 내용: "잠깐 동안의\n우리 세상으로" },
-        { 시간: 161, 내용: "날아가 보는 거야" },
-        { 시간: 164, 내용: "우리 어떤 모습이라도" },
-        { 시간: 168.5, 내용: "결국 함께라면" },
-        { 시간: 171.5, 내용: "끝은 나지 않을 거야" },
-        { 시간: 177, 내용: "아무리 높은 벽이 있어도" },
-        { 시간: 181.5, 내용: "우리 세상으로 날아가" },
-        { 시간: 188.5, 내용: "아직 늦지 않았으니까\n걱정은 하지 마" },
-        { 시간: 195, 내용: "이 길의 끝에서 우리\n함께 만날 거니까" },
-        { 시간: 201.5, 내용: "눈을 뜨면 그 앞에\n펼쳐지는 하늘에" },
-        { 시간: 208, 내용: "끝이 없는 우리 세상으로" },
-        { 시간: 214, 내용: "날아가 보는 거야" },
-        { 시간: 218, 내용: "Fly again!" },
-        { 시간: 224, 내용: "Fly again!" },
-        { 시간: 231, 내용: "Fly again!" },
-        { 시간: 238, 내용: "Fly again!" },
-      ],
-      음원: "https://pub-eb7063c1256b42148f33d95d25411e8c.r2.dev/track1.wav" 
-    },
-    { 번호: 2, 제목: "수록곡 2", 앨범아트: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=500", 가사데이터: [{ 시간: 0, 내용: "두 번째 트랙 가사입니다." }], 음원: "https://pub-eb7063c1256b42148f33d95d25411e8c.r2.dev/track2.wav" },
-    { 번호: 3, 제목: "수록곡 3", 앨범아트: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=500", 가사데이터: [{ 시간: 0, 내용: "준비 중..." }], 음원: "https://pub-eb7063c1256b42148f33d95d25411e8c.r2.dev/track3.wav" },
-    { 번호: 4, 제목: "수록곡 4", 앨범아트: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=500", 가사데이터: [{ 시간: 0, 내용: "준비 중..." }], 음원: "https://pub-eb7063c1256b42148f33d95d25411e8c.r2.dev/track4.wav" },
-    { 번호: 5, 제목: "수록곡 5", 앨범아트: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=500", 가사데이터: [{ 시간: 0, 내용: "준비 중..." }], 음원: "https://pub-eb7063c1256b42148f33d95d25411e8c.r2.dev/track5.wav" },
-    { 번호: 6, 제목: "수록곡 6", 앨범아트: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=500", 가사데이터: [{ 시간: 0, 내용: "준비 중..." }], 음원: "https://pub-eb7063c1256b42148f33d95d25411e8c.r2.dev/track6.wav" },
-    { 번호: 7, 제목: "수록곡 7", 앨범아트: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=500", 가사데이터: [{ 시간: 0, 내용: "준비 중..." }], 음원: "https://pub-eb7063c1256b42148f33d95d25411e8c.r2.dev/track7.wav" },
-  ];
+  // 💡 [수정 3] 스테일 클로저 방지를 위한 재생 상태 추적 Ref
+  const isPlayingRef = useRef(isPlaying);
+  useEffect(() => {
+    isPlayingRef.current = isPlaying;
+  }, [isPlaying]);
+
+  // 💡 [수정 6] 언마운트 시 메모리 누수 방지 (단, AudioContext 파괴 코드는 버그 유발로 제외)
+  useEffect(() => {
+    return () => {
+      if (fadeAnimationRef.current) cancelAnimationFrame(fadeAnimationRef.current);
+    };
+  }, []);
 
   // --- [보안] URL 검증 ---
   useEffect(() => {
@@ -124,7 +140,6 @@ export default function AlbumPage() {
     }
   }, []);
 
-  // --- [보안] SHA-256 해싱 엔진 ---
   const hashString = async (string) => {
     const utf8 = new TextEncoder().encode(string);
     const hashBuffer = await crypto.subtle.digest('SHA-256', utf8);
@@ -134,7 +149,12 @@ export default function AlbumPage() {
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    if (pinInput.length !== 6) return;
+    
+    // 💡 [수정 10] PIN 유효성 검사 강화 (6자리 숫자 정규식)
+    if (!/^\d{6}$/.test(pinInput)) {
+      setLoginError('정확한 6자리 숫자를 입력해주세요.');
+      return;
+    }
     
     const saltedInput = `${urlParams.token}_${pinInput}`;
     const hashedInput = await hashString(saltedInput);
@@ -149,32 +169,49 @@ export default function AlbumPage() {
 
   // --- [연출] 인트로 시퀀스 ---
   useEffect(() => {
+    // 💡 [수정 6] 타이머 클린업 적용
     if (viewState === 'intro') {
-      setTimeout(() => setIntroOpacity(100), 100);
-      setTimeout(() => setIntroOpacity(0), 3500);
-      setTimeout(() => setViewState('main'), 4500);
+      const t1 = setTimeout(() => setIntroOpacity(100), 100);
+      const t2 = setTimeout(() => setIntroOpacity(0), 3500);
+      const t3 = setTimeout(() => setViewState('main'), 4500);
+      return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
     }
   }, [viewState]);
 
-  // --- 오디오 엔진 시작 ---
+  // 디지털 믹서(GainNode) 초기화
   const ensureAudioContext = () => {
-    const AudioContext = window.AudioContext || window.webkitAudioContext;
-    if (!window.audioCtx) window.audioCtx = new AudioContext();
-    if (window.audioCtx.state === 'suspended') window.audioCtx.resume();
+    if (!audioCtxRef.current && audioRef.current) {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioCtxRef.current = new AudioContext();
+      
+      gainNodeRef.current = audioCtxRef.current.createGain();
+      
+      sourceRef.current = audioCtxRef.current.createMediaElementSource(audioRef.current);
+      sourceRef.current.connect(gainNodeRef.current);
+      gainNodeRef.current.connect(audioCtxRef.current.destination);
+    }
+    if (audioCtxRef.current?.state === 'suspended') {
+      audioCtxRef.current.resume();
+    }
   };
 
+  // 오디오 볼륨(gain) 페이드 컨트롤
   const doFade = (targetVolume, durationMs = 150) => {
     return new Promise(resolve => {
       if (!audioRef.current) return resolve();
+      
       if (fadeAnimationRef.current) cancelAnimationFrame(fadeAnimationRef.current);
       if (activeFadeResolve.current) activeFadeResolve.current(); 
 
       activeFadeResolve.current = resolve;
-      const startVolume = audioRef.current.volume;
+      
+      const isUsingGain = !!gainNodeRef.current;
+      const startVolume = isUsingGain ? gainNodeRef.current.gain.value : audioRef.current.volume;
       const volumeDiff = targetVolume - startVolume;
 
       if (Math.abs(volumeDiff) < 0.01) {
-        audioRef.current.volume = targetVolume;
+        if (isUsingGain) gainNodeRef.current.gain.value = targetVolume;
+        else audioRef.current.volume = targetVolume;
         activeFadeResolve.current = null;
         return resolve();
       }
@@ -183,15 +220,19 @@ export default function AlbumPage() {
       const animate = (time) => {
         const elapsed = time - startTime;
         const progress = Math.min(elapsed / durationMs, 1);
+        const currentVol = Math.max(0, Math.min(1, startVolume + (volumeDiff * progress)));
         
-        if (audioRef.current) {
-          audioRef.current.volume = Math.max(0, Math.min(1, startVolume + (volumeDiff * progress)));
+        if (isUsingGain && gainNodeRef.current) {
+          gainNodeRef.current.gain.value = currentVol;
+        } else if (audioRef.current) {
+          audioRef.current.volume = currentVol;
         }
         
         if (progress < 1) {
           fadeAnimationRef.current = requestAnimationFrame(animate);
         } else {
-          if (audioRef.current) audioRef.current.volume = Math.max(0, Math.min(1, targetVolume));
+          if (isUsingGain && gainNodeRef.current) gainNodeRef.current.gain.value = targetVolume;
+          else if (audioRef.current) audioRef.current.volume = targetVolume;
           fadeAnimationRef.current = null;
           activeFadeResolve.current = null;
           resolve();
@@ -201,7 +242,7 @@ export default function AlbumPage() {
     });
   };
 
-  // 💡 [핵심 최적화 1] 가사 트래킹 정밀 시퀀스 (찌꺼기 & 팝 완전 제거)
+  // 💡 가사 클릭 시 팝 노이즈 차단 (Seamless Seek + 동기화)
   const executeSeek = async (newTime, forcePlay = false) => {
     if (!audioRef.current || isSeekingRef.current) return;
     if (audioRef.current.readyState === 0) return;
@@ -211,54 +252,48 @@ export default function AlbumPage() {
     const willPlay = wasPlaying || forcePlay;
     
     try {
+      ensureAudioContext(); 
+
       if (wasPlaying) {
-        await doFade(0, 150); // 안전하게 페이드 아웃
-        audioRef.current.pause();
+        await doFade(0, 150);
+        // 🚨 팝 사운드 제거를 위해 pause() 생략 (Seamless Seek)
       }
       
-      // 💡 찌꺼기 방지: 하드웨어 뮤트 대신 볼륨을 0으로 꽉 잠급니다.
-      audioRef.current.volume = 0; 
-      
-      // 시간 이동 시작
+      if (gainNodeRef.current) gainNodeRef.current.gain.value = 0;
+      else audioRef.current.volume = 0;
+
+      const seekPromise = new Promise(resolve => {
+        const onSeeked = () => { audioRef.current.removeEventListener('seeked', onSeeked); resolve(); };
+        audioRef.current.addEventListener('seeked', onSeeked);
+        setTimeout(() => { audioRef.current.removeEventListener('seeked', onSeeked); resolve(); }, 300);
+      });
+
       audioRef.current.currentTime = newTime;
       setCurrentTime(newTime);
       setIsDragging(false);
       
+      await seekPromise; 
+
       if (willPlay) {
-        ensureAudioContext();
+        if (gainNodeRef.current) gainNodeRef.current.gain.value = 0;
 
-        // 💡 1. 탐색(Seek) 완료 신호 대기 (이전 버퍼 찌꺼기 방출 방지)
-        await new Promise(resolve => {
-          const onSeeked = () => {
-            audioRef.current.removeEventListener('seeked', onSeeked);
-            resolve();
-          };
-          audioRef.current.addEventListener('seeked', onSeeked);
-          setTimeout(() => {
-            audioRef.current.removeEventListener('seeked', onSeeked);
-            resolve();
-          }, 300); // 300ms 락다운 보루
-        });
+        if (!wasPlaying) {
+          const playPromise = new Promise(resolve => {
+            const onPlaying = () => { audioRef.current.removeEventListener('playing', onPlaying); resolve(); };
+            audioRef.current.addEventListener('playing', onPlaying);
+            setTimeout(() => { audioRef.current.removeEventListener('playing', onPlaying); resolve(); }, 300);
+          });
+          await audioRef.current.play();
+          setIsPlaying(true);
+          await playPromise; 
+        }
 
-        await audioRef.current.play();
-        setIsPlaying(true);
-
-        // 💡 2. 스피커 활성화 신호 대기 (허공 페이드 인 증발 방지)
-        await new Promise(resolve => {
-          const onPlaying = () => {
-            audioRef.current.removeEventListener('playing', onPlaying);
-            resolve();
-          };
-          audioRef.current.addEventListener('playing', onPlaying);
-          setTimeout(() => {
-            audioRef.current.removeEventListener('playing', onPlaying);
-            resolve();
-          }, 300);
-        });
-
-        // 💡 3. 하드웨어가 완벽히 준비된 후 400ms 동안 묵직하게 페이드 인
+        // 찌꺼기 씹어먹기 찰나 대기
+        await new Promise(resolve => setTimeout(resolve, 50)); 
         await doFade(1, 400); 
-        if (audioRef.current) audioRef.current.volume = 1; 
+      } else {
+        audioRef.current.pause();
+        setIsPlaying(false);
       }
     } catch (e) {
       console.error("Seek error:", e);
@@ -268,7 +303,6 @@ export default function AlbumPage() {
     }
   };
 
-  // 💡 [핵심 최적화 2] 재생 버튼 클릭 시 페이드 인 정밀 동기화
   const togglePlay = async (e) => {
     if (e) { e.preventDefault(); e.stopPropagation(); }
     if (!audioRef.current || isSeekingRef.current) return;
@@ -280,30 +314,26 @@ export default function AlbumPage() {
         setIsPlaying(false);
       } else {
         ensureAudioContext(); 
-        audioRef.current.volume = 0;
+        if (gainNodeRef.current) gainNodeRef.current.gain.value = 0;
+        else audioRef.current.volume = 0;
+        
+        const playPromise = new Promise(resolve => {
+          const onPlaying = () => { audioRef.current.removeEventListener('playing', onPlaying); resolve(); };
+          audioRef.current.addEventListener('playing', onPlaying);
+          setTimeout(() => { audioRef.current.removeEventListener('playing', onPlaying); resolve(); }, 300);
+        });
+
         await audioRef.current.play();
         setIsPlaying(true);
 
-        // 💡 스피커 활성화 신호 대기 후 페이드 인 적용
-        await new Promise(resolve => {
-          const onPlaying = () => {
-            audioRef.current.removeEventListener('playing', onPlaying);
-            resolve();
-          };
-          audioRef.current.addEventListener('playing', onPlaying);
-          setTimeout(() => {
-            audioRef.current.removeEventListener('playing', onPlaying);
-            resolve();
-          }, 300);
-        });
+        await playPromise;
+        await new Promise(resolve => setTimeout(resolve, 50));
 
         await doFade(1, 400);
-        if (audioRef.current) audioRef.current.volume = 1; 
       }
     } catch (e) {
       console.error("Playback error:", e);
       setIsPlaying(false);
-      if (audioRef.current) audioRef.current.volume = 1; 
     } finally {
       isSeekingRef.current = false;
     }
@@ -316,6 +346,8 @@ export default function AlbumPage() {
       if (isPlaying) {
         await doFade(0, 150);
         audioRef.current.pause();
+        // 💡 [수정 1] 트랙 이동 시 UI 불일치 해결
+        setIsPlaying(false);
       }
       if (direction === 'next') setCurrentTrack(prev => (prev < 7 ? prev + 1 : 1));
       else setCurrentTrack(prev => (prev > 1 ? prev - 1 : 7));
@@ -324,49 +356,47 @@ export default function AlbumPage() {
     }
   };
 
-  // 💡 [핵심 최적화 3] 다음 곡 넘어갈 때도 페이드 인 동기화 적용
   useEffect(() => {
     if (audioRef.current && viewState === 'main') {
       audioRef.current.pause();
-      audioRef.current.load();
+      audioRef.current.load(); 
       setCurrentTime(0);
       setActiveLyricIndex(0);
 
-      if (isPlaying) {
+      // 💡 [수정 2] 가사 배열 초기화 (인덱스 오염 방지)
+      lyricRefs.current = [];
+
+      // 💡 [수정 3 반영] 최신 상태(isPlayingRef)를 참조하여 자동 재생 판별
+      if (isPlayingRef.current) {
         ensureAudioContext();
-        audioRef.current.volume = 0;
-        const playPromise = audioRef.current.play();
-        if (playPromise !== undefined) {
-          playPromise.then(() => {
-            // 스피커 대기 후 페이드
-            return new Promise(resolve => {
-              const onPlaying = () => {
-                audioRef.current.removeEventListener('playing', onPlaying);
-                resolve();
-              };
-              audioRef.current.addEventListener('playing', onPlaying);
-              setTimeout(() => {
-                audioRef.current.removeEventListener('playing', onPlaying);
-                resolve();
-              }, 300);
+        if (gainNodeRef.current) gainNodeRef.current.gain.value = 0;
+        else audioRef.current.volume = 0;
+
+        const playEventPromise = new Promise(resolve => {
+          const onPlaying = () => { audioRef.current.removeEventListener('playing', onPlaying); resolve(); };
+          audioRef.current.addEventListener('playing', onPlaying);
+          setTimeout(() => { audioRef.current.removeEventListener('playing', onPlaying); resolve(); }, 300);
+        });
+
+        const playRequest = audioRef.current.play();
+        if (playRequest !== undefined) {
+          playRequest
+            .then(() => playEventPromise)
+            .then(() => new Promise(resolve => setTimeout(resolve, 50)))
+            .then(() => doFade(1, 400))
+            .catch((error) => {
+              console.error("오토플레이 방지됨:", error);
+              setIsPlaying(false);
             });
-          }).then(() => {
-            return doFade(1, 400);
-          }).then(() => {
-            if (audioRef.current) audioRef.current.volume = 1;
-          }).catch((error) => {
-            console.error("오토플레이 방지됨:", error);
-            setIsPlaying(false);
-          });
         }
       }
     }
-  }, [currentTrack]); 
-  // --- 오디오 엔진 끝 ---
+  }, [currentTrack, viewState]); 
 
   // --- [컨트롤 슬라이더 로직] ---
   const handlePointerDown = (e) => {
     e.currentTarget.setPointerCapture(e.pointerId);
+    // 💡 [수정 9] 중복 호출 제거됨 (여기서만 상태 변경)
     setIsDragging(true);
     const rect = progressBarRef.current.getBoundingClientRect();
     const pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
@@ -402,10 +432,22 @@ export default function AlbumPage() {
   useEffect(() => {
     if (!isDragging && viewState === 'main') {
       const lyrics = trackList[currentTrack - 1].가사데이터;
-      const index = lyrics.findLastIndex(lyric => lyric.시간 <= currentTime);
-      if (index !== -1 && index !== activeLyricIndex) setActiveLyricIndex(index);
+      
+      // 💡 [수정 5] findLastIndex 호환성 버그 해결 (역순 for문 교체)
+      let index = -1;
+      for (let i = lyrics.length - 1; i >= 0; i--) {
+        if (lyrics[i].시간 <= currentTime) {
+          index = i;
+          break;
+        }
+      }
+
+      if (index !== -1 && index !== activeLyricIndex) {
+        setActiveLyricIndex(index);
+      }
     }
-  }, [currentTime, currentTrack, isDragging, viewState]);
+    // 💡 [수정 7] deps 경고 해결
+  }, [currentTime, currentTrack, isDragging, viewState, activeLyricIndex]);
 
   useEffect(() => {
     if (isAutoScroll && lyricRefs.current[activeLyricIndex] && !isDragging && viewState === 'main' && showLyrics) {
@@ -582,7 +624,7 @@ export default function AlbumPage() {
 
                 {/* 2층: 진행 바 (페이더) */}
                 <div className="flex flex-col space-y-3">
-                  <div ref={progressBarRef} onPointerDown={(e) => { setIsDragging(true); handlePointerDown(e); }} onPointerMove={(e) => isDragging && handleDrag(e)} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp} className="h-6 flex items-center cursor-pointer relative touch-none group">
+                  <div ref={progressBarRef} onPointerDown={(e) => { handlePointerDown(e); }} onPointerMove={(e) => isDragging && handleDrag(e)} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp} className="h-6 flex items-center cursor-pointer relative touch-none group">
                     <div className="h-1.5 bg-gray-300 w-full rounded-full shadow-inner"><div className="h-full bg-[#E63946] rounded-full" style={{ width: (duration ? (currentTime / duration * 100) : 0) + '%' }} /></div>
                     <div className="absolute w-4 h-4 bg-white rounded-full shadow-md border border-gray-200 transition-transform group-active:scale-125" style={{ left: `calc(${(duration ? (currentTime / duration * 100) : 0)}% - 8px)` }} />
                   </div>

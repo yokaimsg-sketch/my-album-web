@@ -262,12 +262,8 @@ export default function AlbumPage() {
         gainNodeRef.current.gain.setValueAtTime(0, now);
       }
 
-      // 🚨 iOS에서 seek 시 발생하는 미세한 팝음을 원천 차단하기 위해
-      // 어떤 상태에서든 미디어를 정지하고 오디오 세션을 강제 중단(suspend) 시킴
+      // 🚨 iOS에서 seek 시 발생하는 미세한 팝음을 막기 위해 일시 정지 필수 (버퍼 비우기)
       audioRef.current.pause();
-      if (audioCtxRef.current && audioCtxRef.current.state === 'running') {
-        await audioCtxRef.current.suspend();
-      }
       
       const seekPromise = new Promise(resolve => {
         const onSeeked = () => { audioRef.current.removeEventListener('seeked', onSeeked); resolve(); };
@@ -282,11 +278,6 @@ export default function AlbumPage() {
       await seekPromise; 
 
       if (willPlay) {
-        // 컨텍스트 재개
-        if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
-          await audioCtxRef.current.resume();
-        }
-
         if (gainNodeRef.current) gainNodeRef.current.gain.value = 0;
 
         if (audioRef.current.paused) {

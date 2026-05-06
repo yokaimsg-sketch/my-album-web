@@ -252,15 +252,22 @@ export default function AlbumPage() {
     try {
       await ensureAudioContext(); 
 
+      // 🚨 어떤 상태에서든 일단 볼륨을 0으로 강제하고 시작 (iOS glitch 방지)
+      if (gainNodeRef.current && audioCtxRef.current) {
+        const { currentTime: now } = audioCtxRef.current;
+        gainNodeRef.current.gain.cancelScheduledValues(now);
+        gainNodeRef.current.gain.setValueAtTime(0, now);
+      } else if (audioRef.current) {
+        audioRef.current.volume = 0;
+      }
+
       if (wasPlaying) {
         await doFade(0, 150);
-        // 🚨 iOS 찌꺼기 음 방지를 위해 일시 정지 필수 (버퍼 비우기)
-        audioRef.current.pause();
       }
-      
-      if (gainNodeRef.current) gainNodeRef.current.gain.value = 0;
-      else audioRef.current.volume = 0;
 
+      // 🚨 iOS에서 seek 시 발생하는 미세한 팝음을 막기 위해 어떤 상태에서든 일시 정지 필수
+      audioRef.current.pause();
+      
       const seekPromise = new Promise(resolve => {
         const onSeeked = () => { audioRef.current.removeEventListener('seeked', onSeeked); resolve(); };
         audioRef.current.addEventListener('seeked', onSeeked);

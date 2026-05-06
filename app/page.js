@@ -201,45 +201,39 @@ export default function AlbumPage() {
     return new Promise(resolve => {
       if (!audioRef.current) return resolve();
       
+      // 기존 requestAnimationFrame 기반 애니메이션 중단 (하위 호환성 유지)
       if (fadeAnimationRef.current) cancelAnimationFrame(fadeAnimationRef.current);
       if (activeFadeResolve.current) activeFadeResolve.current(); 
 
       activeFadeResolve.current = resolve;
       
-      const isUsingGain = !!gainNodeRef.current;
-      const startVolume = isUsingGain ? gainNodeRef.current.gain.value : audioRef.current.volume;
-      const volumeDiff = targetVolume - startVolume;
-
-      if (Math.abs(volumeDiff) < 0.01) {
-        if (isUsingGain) gainNodeRef.current.gain.value = targetVolume;
-        else audioRef.current.volume = targetVolume;
-        activeFadeResolve.current = null;
-        return resolve();
-      }
-
-      const startTime = performance.now();
-      const animate = (time) => {
-        const elapsed = time - startTime;
-        const progress = Math.min(elapsed / durationMs, 1);
-        const currentVol = Math.max(0, Math.min(1, startVolume + (volumeDiff * progress)));
-        
-        if (isUsingGain && gainNodeRef.current) {
-          gainNodeRef.current.gain.value = currentVol;
-        } else if (audioRef.current) {
-          audioRef.current.volume = currentVol;
-        }
-        
-        if (progress < 1) {
-          fadeAnimationRef.current = requestAnimationFrame(animate);
-        } else {
-          if (isUsingGain && gainNodeRef.current) gainNodeRef.current.gain.value = targetVolume;
-          else if (audioRef.current) audioRef.current.volume = targetVolume;
-          fadeAnimationRef.current = null;
-          activeFadeResolve.current = null;
+      const isUsingGain = !!gainNodeRef.current && !!audioCtxRef.current;
+      
+      if (isUsingGain) {
+        try {
+          const { currentTime } = audioCtxRef.current;
+          // 현재 예약된 모든 볼륨 변경 취소
+          gainNodeRef.current.gain.cancelScheduledValues(currentTime);
+          // 현재 볼륨 지점에서 시작하여 targetVolume까지 선형적으로 변화
+          gainNodeRef.current.gain.setValueAtTime(gainNodeRef.current.gain.value, currentTime);
+          gainNodeRef.current.gain.linearRampToValueAtTime(targetVolume, currentTime + (durationMs / 1000));
+          
+          // 스케줄링이 끝나는 시점에 맞추어 Promise 해결
+          setTimeout(() => {
+            activeFadeResolve.current = null;
+            resolve();
+          }, durationMs);
+        } catch (e) {
+          console.error("Fade scheduling error:", e);
+          gainNodeRef.current.gain.value = targetVolume;
           resolve();
         }
-      };
-      fadeAnimationRef.current = requestAnimationFrame(animate);
+      } else {
+        // GainNode가 없는 경우 직접 조절 (애니메이션 생략하여 동기화 우선)
+        audioRef.current.volume = targetVolume;
+        activeFadeResolve.current = null;
+        resolve();
+      }
     });
   };
 
@@ -257,7 +251,7 @@ export default function AlbumPage() {
 
       if (wasPlaying) {
         await doFade(0, 150);
-        // 🚨 iOS 찌꺼기 음 방지를 위해 일시 정지 필수
+        // 🚨 iOS 찌꺼기 음 방지를 위해 일시 정지 필수 (버퍼 비우기)
         audioRef.current.pause();
       }
       
@@ -279,8 +273,6 @@ export default function AlbumPage() {
       if (willPlay) {
         if (gainNodeRef.current) gainNodeRef.current.gain.value = 0;
 
-        // wasPlaying 여부와 상관없이, 위에서 pause()를 호출했을 수 있으므로 
-        // 현재 일시정지 상태라면 play()를 호출합니다.
         if (audioRef.current.paused) {
           const playPromise = new Promise(resolve => {
             const onPlaying = () => { audioRef.current.removeEventListener('playing', onPlaying); resolve(); };
@@ -292,12 +284,14 @@ export default function AlbumPage() {
           await playPromise; 
         }
 
-        // 찌꺼기 씹어먹기 찰나 대기
-        await new Promise(resolve => setTimeout(resolve, 50)); 
+        // iOS에서 새 지점의 오디오 데이터가 안착할 때까지 충분히 대기 (찌꺼기 차단)
+        await new Promise(resolve => setTimeout(resolve, 100)); 
         await doFade(1, 400); 
       } else {
         audioRef.current.pause();
         setIsPlaying(false);
+        // 정지 시 iOS 오디오 세션을 반환하여 시스템 사운드 볼륨 정상화
+        if (audioCtxRef.current) await audioCtxRef.current.suspend();
       }
     } catch (e) {
       console.error("Seek error:", e);
@@ -316,6 +310,8 @@ export default function AlbumPage() {
         await doFade(0, 150);
         audioRef.current.pause();
         setIsPlaying(false);
+        // 정지 시 iOS 오디오 세션 반환
+        if (audioCtxRef.current) await audioCtxRef.current.suspend();
       } else {
         await ensureAudioContext(); 
         if (gainNodeRef.current) gainNodeRef.current.gain.value = 0;
@@ -331,7 +327,7 @@ export default function AlbumPage() {
         setIsPlaying(true);
 
         await playPromise;
-        await new Promise(resolve => setTimeout(resolve, 50));
+        await new Promise(resolve => setTimeout(resolve, 100));
 
         await doFade(1, 400);
       }
@@ -388,7 +384,8 @@ export default function AlbumPage() {
             if (playRequest !== undefined) {
               await playRequest;
               await playEventPromise;
-              await new Promise(resolve => setTimeout(resolve, 50));
+              // iOS 안정성을 위해 대기 시간 약간 증가
+              await new Promise(resolve => setTimeout(resolve, 100));
               await doFade(1, 400);
             }
           } catch (error) {

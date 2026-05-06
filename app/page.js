@@ -268,7 +268,8 @@ export default function AlbumPage() {
       const seekPromise = new Promise(resolve => {
         const onSeeked = () => { audioRef.current.removeEventListener('seeked', onSeeked); resolve(); };
         audioRef.current.addEventListener('seeked', onSeeked);
-        setTimeout(() => { audioRef.current.removeEventListener('seeked', onSeeked); resolve(); }, 300);
+        // 브라우저가 로딩을 완료할 때까지 충분히 기다림 (기존 300ms -> 3000ms)
+        setTimeout(() => { audioRef.current.removeEventListener('seeked', onSeeked); resolve(); }, 3000);
       });
 
       audioRef.current.currentTime = newTime;
@@ -277,6 +278,15 @@ export default function AlbumPage() {
       
       await seekPromise; 
 
+      // 💡 [추가] 데이터가 재생 가능할 때까지 명시적으로 확인 (HAVE_FUTURE_DATA 이상)
+      if (audioRef.current.readyState < 3) {
+        await new Promise(resolve => {
+          const onCanPlay = () => { audioRef.current.removeEventListener('canplay', onCanPlay); resolve(); };
+          audioRef.current.addEventListener('canplay', onCanPlay);
+          setTimeout(() => { audioRef.current.removeEventListener('canplay', onCanPlay); resolve(); }, 2000);
+        });
+      }
+
       if (willPlay) {
         if (gainNodeRef.current) gainNodeRef.current.gain.value = 0;
 
@@ -284,7 +294,8 @@ export default function AlbumPage() {
           const playPromise = new Promise(resolve => {
             const onPlaying = () => { audioRef.current.removeEventListener('playing', onPlaying); resolve(); };
             audioRef.current.addEventListener('playing', onPlaying);
-            setTimeout(() => { audioRef.current.removeEventListener('playing', onPlaying); resolve(); }, 300);
+            // 재생 시작 이벤트도 충분히 기다림
+            setTimeout(() => { audioRef.current.removeEventListener('playing', onPlaying); resolve(); }, 3000);
           });
           await audioRef.current.play();
           setIsPlaying(true);
@@ -328,7 +339,8 @@ export default function AlbumPage() {
         const playPromise = new Promise(resolve => {
           const onPlaying = () => { audioRef.current.removeEventListener('playing', onPlaying); resolve(); };
           audioRef.current.addEventListener('playing', onPlaying);
-          setTimeout(() => { audioRef.current.removeEventListener('playing', onPlaying); resolve(); }, 300);
+          // 재생 안정성을 위해 대기 시간 증가
+          setTimeout(() => { audioRef.current.removeEventListener('playing', onPlaying); resolve(); }, 3000);
         });
 
         await audioRef.current.play();
@@ -382,10 +394,19 @@ export default function AlbumPage() {
           if (gainNodeRef.current) gainNodeRef.current.gain.value = 0;
           else audioRef.current.volume = 0;
 
+          // 💡 [추가] 파일 로드가 완료될 때까지 대기
+          if (audioRef.current.readyState < 3) {
+            await new Promise(resolve => {
+              const onCanPlay = () => { audioRef.current.removeEventListener('canplay', onCanPlay); resolve(); };
+              audioRef.current.addEventListener('canplay', onCanPlay);
+              setTimeout(() => { audioRef.current.removeEventListener('canplay', onCanPlay); resolve(); }, 3000);
+            });
+          }
+
           const playEventPromise = new Promise(resolve => {
             const onPlaying = () => { audioRef.current.removeEventListener('playing', onPlaying); resolve(); };
             audioRef.current.addEventListener('playing', onPlaying);
-            setTimeout(() => { audioRef.current.removeEventListener('playing', onPlaying); resolve(); }, 300);
+            setTimeout(() => { audioRef.current.removeEventListener('playing', onPlaying); resolve(); }, 3000);
           });
 
           try {

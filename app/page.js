@@ -6,7 +6,7 @@ import { useState, useRef, useEffect } from 'react';
 const trackList = [
   { 
     번호: 1, 제목: "NONB - Fly again!", 
-    앨범아트: "/cover1.jpg", 
+    앨범아트: "https://pub-eb7063c1256b42148f33d95d25411e8c.r2.dev/cover1.jpg",
     가사데이터: [
       { 시간: 28, 내용: "꿈속 만난 나의 모습" },
       { 시간: 34.5, 내용: "그 모습이 아른거려" },
@@ -180,7 +180,7 @@ export default function AlbumPage() {
   }, [viewState]);
 
   // 디지털 믹서(GainNode) 초기화
-  const ensureAudioContext = () => {
+  const ensureAudioContext = async () => {
     if (!audioCtxRef.current && audioRef.current) {
       const AudioContext = window.AudioContext || window.webkitAudioContext;
       audioCtxRef.current = new AudioContext();
@@ -192,7 +192,7 @@ export default function AlbumPage() {
       gainNodeRef.current.connect(audioCtxRef.current.destination);
     }
     if (audioCtxRef.current?.state === 'suspended') {
-      audioCtxRef.current.resume();
+      await audioCtxRef.current.resume();
     }
   };
 
@@ -249,15 +249,16 @@ export default function AlbumPage() {
     if (audioRef.current.readyState === 0) return;
 
     isSeekingRef.current = true;
-    const wasPlaying = isPlaying;
+    const wasPlaying = isPlayingRef.current;
     const willPlay = wasPlaying || forcePlay;
     
     try {
-      ensureAudioContext(); 
+      await ensureAudioContext(); 
 
       if (wasPlaying) {
         await doFade(0, 150);
-        // 🚨 팝 사운드 제거를 위해 pause() 생략 (Seamless Seek)
+        // 🚨 iOS 찌꺼기 음 방지를 위해 일시 정지 필수
+        audioRef.current.pause();
       }
       
       if (gainNodeRef.current) gainNodeRef.current.gain.value = 0;
@@ -278,7 +279,9 @@ export default function AlbumPage() {
       if (willPlay) {
         if (gainNodeRef.current) gainNodeRef.current.gain.value = 0;
 
-        if (!wasPlaying) {
+        // wasPlaying 여부와 상관없이, 위에서 pause()를 호출했을 수 있으므로 
+        // 현재 일시정지 상태라면 play()를 호출합니다.
+        if (audioRef.current.paused) {
           const playPromise = new Promise(resolve => {
             const onPlaying = () => { audioRef.current.removeEventListener('playing', onPlaying); resolve(); };
             audioRef.current.addEventListener('playing', onPlaying);
@@ -314,7 +317,7 @@ export default function AlbumPage() {
         audioRef.current.pause();
         setIsPlaying(false);
       } else {
-        ensureAudioContext(); 
+        await ensureAudioContext(); 
         if (gainNodeRef.current) gainNodeRef.current.gain.value = 0;
         else audioRef.current.volume = 0;
         
@@ -369,27 +372,30 @@ export default function AlbumPage() {
 
       // 💡 [수정 3 반영] 최신 상태(isPlayingRef)를 참조하여 자동 재생 판별
       if (isPlayingRef.current) {
-        ensureAudioContext();
-        if (gainNodeRef.current) gainNodeRef.current.gain.value = 0;
-        else audioRef.current.volume = 0;
+        (async () => {
+          await ensureAudioContext();
+          if (gainNodeRef.current) gainNodeRef.current.gain.value = 0;
+          else audioRef.current.volume = 0;
 
-        const playEventPromise = new Promise(resolve => {
-          const onPlaying = () => { audioRef.current.removeEventListener('playing', onPlaying); resolve(); };
-          audioRef.current.addEventListener('playing', onPlaying);
-          setTimeout(() => { audioRef.current.removeEventListener('playing', onPlaying); resolve(); }, 300);
-        });
+          const playEventPromise = new Promise(resolve => {
+            const onPlaying = () => { audioRef.current.removeEventListener('playing', onPlaying); resolve(); };
+            audioRef.current.addEventListener('playing', onPlaying);
+            setTimeout(() => { audioRef.current.removeEventListener('playing', onPlaying); resolve(); }, 300);
+          });
 
-        const playRequest = audioRef.current.play();
-        if (playRequest !== undefined) {
-          playRequest
-            .then(() => playEventPromise)
-            .then(() => new Promise(resolve => setTimeout(resolve, 50)))
-            .then(() => doFade(1, 400))
-            .catch((error) => {
-              console.error("오토플레이 방지됨:", error);
-              setIsPlaying(false);
-            });
-        }
+          try {
+            const playRequest = audioRef.current.play();
+            if (playRequest !== undefined) {
+              await playRequest;
+              await playEventPromise;
+              await new Promise(resolve => setTimeout(resolve, 50));
+              await doFade(1, 400);
+            }
+          } catch (error) {
+            console.error("오토플레이 방지됨:", error);
+            setIsPlaying(false);
+          }
+        })();
       }
     }
   }, [currentTrack, viewState]); 

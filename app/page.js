@@ -291,9 +291,9 @@ export default function AlbumPage() {
           await playPromise; 
         }
 
-        // iOS에서 새 지점의 오디오 데이터가 안착할 때까지 충분히 대기 (찌꺼기 차단)
-        // 💡 [수정] 550ms로 더 늘려 미세하게 남은 버퍼 플러시 소리까지 완전히 삼킴
-        await new Promise(resolve => setTimeout(resolve, 550)); 
+        // 🚨 iOS 0:00 지점은 버퍼 플러시가 더 크므로 시간을 더 주어 완전히 차단
+        const silenceDuration = newTime === 0 ? 700 : 550;
+        await new Promise(resolve => setTimeout(resolve, silenceDuration)); 
         await doFade(MAX_VOL, 400); 
       } else {
         audioRef.current.pause();

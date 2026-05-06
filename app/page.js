@@ -88,6 +88,9 @@ export default function AlbumPage() {
   const isSeekingRef = useRef(false); 
   const bgRef = useRef(null); 
 
+  // === 오디오 설정 ===
+  const MAX_VOL = 0.5;
+
   // 디지털 믹서 참조
   const audioCtxRef = useRef(null);
   const gainNodeRef = useRef(null);
@@ -285,8 +288,9 @@ export default function AlbumPage() {
         }
 
         // iOS에서 새 지점의 오디오 데이터가 안착할 때까지 충분히 대기 (찌꺼기 차단)
-        await new Promise(resolve => setTimeout(resolve, 100)); 
-        await doFade(1, 400); 
+        // 💡 [수정] 400ms로 대폭 늘려 버퍼 플러시 소리를 확실히 삼킴
+        await new Promise(resolve => setTimeout(resolve, 400)); 
+        await doFade(MAX_VOL, 400); 
       } else {
         audioRef.current.pause();
         setIsPlaying(false);
@@ -329,7 +333,7 @@ export default function AlbumPage() {
         await playPromise;
         await new Promise(resolve => setTimeout(resolve, 100));
 
-        await doFade(1, 400);
+        await doFade(MAX_VOL, 400);
       }
     } catch (e) {
       console.error("Playback error:", e);
@@ -386,7 +390,7 @@ export default function AlbumPage() {
               await playEventPromise;
               // iOS 안정성을 위해 대기 시간 약간 증가
               await new Promise(resolve => setTimeout(resolve, 100));
-              await doFade(1, 400);
+              await doFade(MAX_VOL, 400);
             }
           } catch (error) {
             console.error("오토플레이 방지됨:", error);

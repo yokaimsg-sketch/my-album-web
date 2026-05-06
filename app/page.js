@@ -252,21 +252,22 @@ export default function AlbumPage() {
     try {
       await ensureAudioContext(); 
 
-      // 🚨 어떤 상태에서든 일단 볼륨을 0으로 강제하고 시작 (iOS glitch 방지)
-      if (gainNodeRef.current && audioCtxRef.current) {
+      if (wasPlaying) {
+        // 부드러운 페이드 아웃 후 정지
+        await doFade(0, 150);
+      } else if (gainNodeRef.current && audioCtxRef.current) {
+        // 이미 멈춰있더라도 혹시 모를 출력을 대비해 gain을 0으로 확정
         const { currentTime: now } = audioCtxRef.current;
         gainNodeRef.current.gain.cancelScheduledValues(now);
         gainNodeRef.current.gain.setValueAtTime(0, now);
-      } else if (audioRef.current) {
-        audioRef.current.volume = 0;
       }
 
-      if (wasPlaying) {
-        await doFade(0, 150);
-      }
-
-      // 🚨 iOS에서 seek 시 발생하는 미세한 팝음을 막기 위해 어떤 상태에서든 일시 정지 필수
+      // 🚨 iOS에서 seek 시 발생하는 미세한 팝음을 원천 차단하기 위해
+      // 어떤 상태에서든 미디어를 정지하고 오디오 세션을 강제 중단(suspend) 시킴
       audioRef.current.pause();
+      if (audioCtxRef.current && audioCtxRef.current.state === 'running') {
+        await audioCtxRef.current.suspend();
+      }
       
       const seekPromise = new Promise(resolve => {
         const onSeeked = () => { audioRef.current.removeEventListener('seeked', onSeeked); resolve(); };
@@ -281,6 +282,11 @@ export default function AlbumPage() {
       await seekPromise; 
 
       if (willPlay) {
+        // 컨텍스트 재개
+        if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
+          await audioCtxRef.current.resume();
+        }
+
         if (gainNodeRef.current) gainNodeRef.current.gain.value = 0;
 
         if (audioRef.current.paused) {
@@ -355,11 +361,11 @@ export default function AlbumPage() {
     if (isSeekingRef.current) return;
     isSeekingRef.current = true;
     try {
-      if (isPlaying) {
+      const wasPlaying = isPlayingRef.current;
+      if (wasPlaying) {
         await doFade(0, 150);
         audioRef.current.pause();
-        setIsPlaying(false);
-        if (audioCtxRef.current) await audioCtxRef.current.suspend();
+        // 🚨 오토플레이 유지를 위해 setIsPlaying(false)와 context suspend는 생략함
       }
       if (direction === 'next') setCurrentTrack(prev => (prev < 7 ? prev + 1 : 1));
       else setCurrentTrack(prev => (prev > 1 ? prev - 1 : 7));

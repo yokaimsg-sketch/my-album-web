@@ -89,7 +89,7 @@ export default function AlbumPage() {
   const bgRef = useRef(null); 
 
   // === 오디오 설정 ===
-  const MAX_VOL = 0.5;
+  const MAX_VOL = 0.4;
 
   // 디지털 믹서 참조
   const audioCtxRef = useRef(null);
@@ -331,7 +331,8 @@ export default function AlbumPage() {
         setIsPlaying(true);
 
         await playPromise;
-        await new Promise(resolve => setTimeout(resolve, 100));
+        // iOS에서 재생 시작 시 발생하는 미세한 팝음을 삼키기 위해 대기 시간 증가 (550ms)
+        await new Promise(resolve => setTimeout(resolve, 550));
 
         await doFade(MAX_VOL, 400);
       }
@@ -388,8 +389,8 @@ export default function AlbumPage() {
             if (playRequest !== undefined) {
               await playRequest;
               await playEventPromise;
-              // iOS 안정성을 위해 대기 시간 약간 증가
-              await new Promise(resolve => setTimeout(resolve, 100));
+              // iOS 안정성을 위해 대기 시간 대폭 증가 (550ms)
+              await new Promise(resolve => setTimeout(resolve, 550));
               await doFade(MAX_VOL, 400);
             }
           } catch (error) {

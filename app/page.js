@@ -2,25 +2,6 @@
 
 import { useState, useRef, useEffect } from 'react';
 
-// 💡 파트너님이 직접 생성하신 완벽한 보안 장부입니다.
-const BUYER_DATA = {
-  "1": {
-    token: "a7b2c9d1",
-    hash: "9b6f1058ccfff726689e4121ff81cd5d7d3e8f4fd107a744f29ad324f0618585", 
-    number: 1
-  },
-  "2": {
-    token: "e4f8g2h1",
-    hash: "22da12750f7ee23d75fd8f677fe454ae00cd30d0553d16975f75fd7377932e0c", 
-    number: 2
-  },
-  "3": {
-    token: "m5n9p2r4",
-    hash: "b0fb5eccfaead16265444efb5abc00a25040df61dc3ab9d50f49fbc081d474ee", 
-    number: 3
-  }
-};
-
 // 💡 [수정 4] 매 렌더링마다 배열이 새로 생성되는 것을 막기 위해 컴포넌트 외부로 분리
 const trackList = [
   { 
@@ -131,21 +112,27 @@ export default function AlbumPage() {
     const id = params.get('id');
     const token = params.get('token');
 
-    if (id && token && BUYER_DATA[id] && BUYER_DATA[id].token === token) {
-      setUrlParams({ id, token });
-      setBuyerInfo(BUYER_DATA[id]);
-      setViewState('login');
+    if (id && token) {
+      fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'verify', id, token })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          setUrlParams({ id, token });
+          setBuyerInfo(data.buyer);
+          setViewState('login');
+        } else {
+          setViewState('invalid');
+        }
+      })
+      .catch(() => setViewState('invalid'));
     } else {
       setViewState('invalid'); 
     }
   }, []);
-
-  const hashString = async (string) => {
-    const utf8 = new TextEncoder().encode(string);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', utf8);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-  };
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -156,14 +143,28 @@ export default function AlbumPage() {
       return;
     }
     
-    const saltedInput = `${urlParams.token}_${pinInput}`;
-    const hashedInput = await hashString(saltedInput);
-    
-    if (hashedInput === buyerInfo.hash) {
-      setViewState('intro');
-    } else {
-      setLoginError('잘못된 시크릿 PIN 번호입니다.');
-      setPinInput('');
+    try {
+      const res = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          action: 'login', 
+          id: urlParams.id, 
+          token: urlParams.token, 
+          pin: pinInput 
+        })
+      });
+      
+      const data = await res.json();
+      
+      if (data.success) {
+        setViewState('intro');
+      } else {
+        setLoginError('잘못된 시크릿 PIN 번호입니다.');
+        setPinInput('');
+      }
+    } catch (err) {
+      setLoginError('서버 통신 중 오류가 발생했습니다.');
     }
   };
 
@@ -346,8 +347,8 @@ export default function AlbumPage() {
       if (isPlaying) {
         await doFade(0, 150);
         audioRef.current.pause();
-        // 💡 [수정 1] 트랙 이동 시 UI 불일치 해결
         setIsPlaying(false);
+        if (audioCtxRef.current) await audioCtxRef.current.suspend();
       }
       if (direction === 'next') setCurrentTrack(prev => (prev < 7 ? prev + 1 : 1));
       else setCurrentTrack(prev => (prev > 1 ? prev - 1 : 7));

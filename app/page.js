@@ -8,12 +8,12 @@ const trackList = [
     번호: 1, 제목: "NONB - Fly again!", 
     앨범아트: "https://pub-eb7063c1256b42148f33d95d25411e8c.r2.dev/cover1.jpg",
     가사데이터: [
-      { 시간: 28, 내용: "꿈속 만난 나의 모습" },
-      { 시간: 34.5, 내용: "그 모습이 아른거려" },
-      { 시간: 41, 내용: "끝이 없는 반복들이" },
-      { 시간: 47.5, 내용: "나에게 또 소리쳐와" },
-      { 시간: 54.5, 내용: "난 왜 흘러가는 시간 속에서" },
-      { 시간: 61, 내용: "되돌아보는 날들만이\n늘어날까" },
+      { 시간: 26, 내용: "꿈속 만난 나의 모습" },
+      { 시간: 32.5, 내용: "그 모습이 아른거려" },
+      { 시간: 39, 내용: "끝이 없는 반복들이" },
+      { 시간: 45.5, 내용: "나에게 또 소리쳐와" },
+      { 시간: 52.5, 내용: "난 왜 흘러가는 시간 속에서" },
+      { 시간: 59, 내용: "되돌아보는 날들만이\n늘어날까" },
       { 시간: 67.5, 내용: "아직 늦지 않았으니까\n걱정은 하지 마" },
       { 시간: 74.5, 내용: "끝까지 선명하게\n비춰주고 있으니까" },
       { 시간: 81, 내용: "눈 감으면 저 멀리\n펼쳐지는 하늘에" },
@@ -47,12 +47,12 @@ const trackList = [
     ],
     음원: "https://pub-eb7063c1256b42148f33d95d25411e8c.r2.dev/track1.wav" 
   },
-  { 번호: 2, 제목: "수록곡 2", 앨범아트: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=500", 가사데이터: [{ 시간: 0, 내용: "두 번째 트랙 가사입니다." }], 음원: "https://pub-eb7063c1256b42148f33d95d25411e8c.r2.dev/track2.wav" },
-  { 번호: 3, 제목: "수록곡 3", 앨범아트: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=500", 가사데이터: [{ 시간: 0, 내용: "준비 중..." }], 음원: "https://pub-eb7063c1256b42148f33d95d25411e8c.r2.dev/track3.wav" },
-  { 번호: 4, 제목: "수록곡 4", 앨범아트: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=500", 가사데이터: [{ 시간: 0, 내용: "준비 중..." }], 음원: "https://pub-eb7063c1256b42148f33d95d25411e8c.r2.dev/track4.wav" },
-  { 번호: 5, 제목: "수록곡 5", 앨범아트: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=500", 가사데이터: [{ 시간: 0, 내용: "준비 중..." }], 음원: "https://pub-eb7063c1256b42148f33d95d25411e8c.r2.dev/track5.wav" },
-  { 번호: 6, 제목: "수록곡 6", 앨범아트: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=500", 가사데이터: [{ 시간: 0, 내용: "준비 중..." }], 음원: "https://pub-eb7063c1256b42148f33d95d25411e8c.r2.dev/track6.wav" },
-  { 번호: 7, 제목: "수록곡 7", 앨범아트: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=500", 가사데이터: [{ 시간: 0, 내용: "준비 중..." }], 음원: "https://pub-eb7063c1256b42148f33d95d25411e8c.r2.dev/track7.wav" },
+  { 번호: 2, 제목: "수록곡 2", 앨범아트: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=500", 가사데이터: [{ 시간: -2, 내용: "두 번째 트랙 가사입니다." }], 음원: "https://pub-eb7063c1256b42148f33d95d25411e8c.r2.dev/track2.wav" },
+  { 번호: 3, 제목: "수록곡 3", 앨범아트: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=500", 가사데이터: [{ 시간: -2, 내용: "준비 중..." }], 음원: "https://pub-eb7063c1256b42148f33d95d25411e8c.r2.dev/track3.wav" },
+  { 번호: 4, 제목: "수록곡 4", 앨범아트: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=500", 가사데이터: [{ 시간: -2, 내용: "준비 중..." }], 음원: "https://pub-eb7063c1256b42148f33d95d25411e8c.r2.dev/track4.wav" },
+  { 번호: 5, 제목: "수록곡 5", 앨범아트: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=500", 가사데이터: [{ 시간: -2, 내용: "준비 중..." }], 음원: "https://pub-eb7063c1256b42148f33d95d25411e8c.r2.dev/track5.wav" },
+  { 번호: 6, 제목: "수록곡 6", 앨범아트: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=500", 가사데이터: [{ 시간: -2, 내용: "준비 중..." }], 음원: "https://pub-eb7063c1256b42148f33d95d25411e8c.r2.dev/track6.wav" },
+  { 번호: 7, 제목: "수록곡 7", 앨범아트: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=500", 가사데이터: [{ 시간: -2, 내용: "준비 중..." }], 음원: "https://pub-eb7063c1256b42148f33d95d25411e8c.r2.dev/track7.wav" },
 ];
 
 export default function AlbumPage() {
@@ -328,9 +328,9 @@ export default function AlbumPage() {
           await playPromise;
         }
 
-        // 🚨 0~60초 구간은 WebKit 프리버퍼에 stale PCM이 남아 graph로 흘러나오므로
+        // 🚨 0~65초 구간은 WebKit 프리버퍼에 stale PCM이 남아 graph로 흘러나오므로
         //    muted+gain=0 상태로 충분히 흘려보내 buffer를 자연 drain (1.5초)
-        const silenceDuration = newTime < 60 ? 1500 : 550;
+        const silenceDuration = newTime < 65 ? 1500 : 550;
         await new Promise(resolve => setTimeout(resolve, silenceDuration));
         // gain이 0인 상태에서 unmute → 팝 없이 해제, 이후 GainNode가 페이드인 담당
         audioRef.current.muted = false;
@@ -379,10 +379,10 @@ export default function AlbumPage() {
         setIsPlaying(true);
 
         await playPromise;
-        // 🚨 일시정지 후 재생 시점의 currentTime이 0~60초 구간이면 source buffer drain을 위해
-        //    1500ms 묵음 유지 (executeSeek와 동일 정책). 1분 이후는 종전 550ms.
+        // 🚨 일시정지 후 재생 시점의 currentTime이 0~65초 구간이면 source buffer drain을 위해
+        //    1500ms 묵음 유지 (executeSeek와 동일 정책). 1:05 이후는 종전 550ms.
         const resumePos = audioRef.current.currentTime;
-        const silenceDuration = resumePos < 60 ? 1500 : 550;
+        const silenceDuration = resumePos < 65 ? 1500 : 550;
         await new Promise(resolve => setTimeout(resolve, silenceDuration));
         audioRef.current.muted = false;
         await doFade(MAX_VOL, 400);

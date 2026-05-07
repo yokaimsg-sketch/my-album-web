@@ -264,7 +264,18 @@ export default function AlbumPage() {
 
       // 🚨 iOS에서 seek 시 발생하는 미세한 팝음을 막기 위해 일시 정지 필수 (버퍼 비우기)
       audioRef.current.pause();
-      
+
+      // 🚨 [핵심] Web Audio source의 stale buffer 차단:
+      //  - 0~9초 구간으로 seek할 때 MediaElementAudioSourceNode 내부 buffer queue에
+      //    이전 위치의 PCM 데이터가 남아 있어 graph로 출력됨 (gain·muted로 못 막음)
+      //  - source를 graph에서 끊고 + AudioContext 처리 자체를 정지시켜 출력 경로 봉쇄
+      if (sourceRef.current && gainNodeRef.current) {
+        try { sourceRef.current.disconnect(gainNodeRef.current); } catch (e) {}
+      }
+      if (audioCtxRef.current && audioCtxRef.current.state === 'running') {
+        await audioCtxRef.current.suspend();
+      }
+
       const seekPromise = new Promise(resolve => {
         const onSeeked = () => { audioRef.current.removeEventListener('seeked', onSeeked); resolve(); };
         audioRef.current.addEventListener('seeked', onSeeked);
@@ -275,8 +286,8 @@ export default function AlbumPage() {
       audioRef.current.currentTime = newTime;
       setCurrentTime(newTime);
       setIsDragging(false);
-      
-      await seekPromise; 
+
+      await seekPromise;
 
       // 💡 [추가] 데이터가 재생 가능할 때까지 명시적으로 확인 (HAVE_FUTURE_DATA 이상)
       if (audioRef.current.readyState < 3) {
@@ -291,6 +302,14 @@ export default function AlbumPage() {
         if (gainNodeRef.current) gainNodeRef.current.gain.value = 0;
         // 🚨 Safari는 GainNode를 초기 프리버퍼(~9초) 동안 우회하므로 OS 레벨 muted로 이중 차단
         audioRef.current.muted = true;
+
+        // graph 복원: AudioContext 재개 → source 재연결 (이때 gain=0이므로 출력 없음)
+        if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
+          await audioCtxRef.current.resume();
+        }
+        if (sourceRef.current && gainNodeRef.current) {
+          try { sourceRef.current.connect(gainNodeRef.current); } catch (e) {}
+        }
 
         if (audioRef.current.paused) {
           const playPromise = new Promise(resolve => {
@@ -311,16 +330,22 @@ export default function AlbumPage() {
         audioRef.current.muted = false;
         await doFade(MAX_VOL, 400);
       } else {
+        // 재생하지 않더라도 다음 재생을 위해 graph 복원
+        if (sourceRef.current && gainNodeRef.current) {
+          try { sourceRef.current.connect(gainNodeRef.current); } catch (e) {}
+        }
         audioRef.current.pause();
         setIsPlaying(false);
-        // 정지 시 iOS 오디오 세션을 반환하여 시스템 사운드 볼륨 정상화
-        if (audioCtxRef.current) await audioCtxRef.current.suspend();
+        // AudioContext는 suspend 상태 유지 (재생 시작 시 ensureAudioContext가 resume)
       }
     } catch (e) {
       console.error("Seek error:", e);
       setIsPlaying(false);
     } finally {
-      // 에러 발생 시에도 muted가 남아 영구 묵음이 되는 것을 방지
+      // 에러 발생 시 graph가 끊긴 채로 남아 영구 무음이 되는 것을 방지
+      if (sourceRef.current && gainNodeRef.current) {
+        try { sourceRef.current.connect(gainNodeRef.current); } catch (e) {} // 이미 연결됐으면 무시
+      }
       if (audioRef.current) audioRef.current.muted = false;
       isSeekingRef.current = false;
     }

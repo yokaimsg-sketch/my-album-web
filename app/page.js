@@ -687,11 +687,11 @@ export default function AlbumPage() {
                       <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
                     </button>
                     
-                    <button onClick={togglePlay} className="text-[#E63946] active:scale-90 transition-transform drop-shadow-lg hover:text-[#D62828]">
+                    <button onClick={togglePlay} className="text-[#E63946] active:scale-90 transition-transform hover:text-[#D62828]">
                       {isPlaying ? (
-                        <svg width="52" height="52" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                        <svg width="52" height="52" viewBox="0 0 24 24" fill="currentColor" className="drop-shadow-lg"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
                       ) : (
-                        <svg width="52" height="52" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                        <svg width="52" height="52" viewBox="0 0 24 24" fill="currentColor" className="drop-shadow-lg"><path d="M8 5v14l11-7z"/></svg>
                       )}
                     </button>
                     

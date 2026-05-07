@@ -329,8 +329,8 @@ export default function AlbumPage() {
         }
 
         // 🚨 0~60초 구간은 WebKit 프리버퍼에 stale PCM이 남아 graph로 흘러나오므로
-        //    muted+gain=0 상태로 충분히 흘려보내 buffer를 자연 drain (2초)
-        const silenceDuration = newTime < 60 ? 2000 : 550;
+        //    muted+gain=0 상태로 충분히 흘려보내 buffer를 자연 drain (1.5초)
+        const silenceDuration = newTime < 60 ? 1500 : 550;
         await new Promise(resolve => setTimeout(resolve, silenceDuration));
         // gain이 0인 상태에서 unmute → 팝 없이 해제, 이후 GainNode가 페이드인 담당
         audioRef.current.muted = false;
@@ -379,8 +379,11 @@ export default function AlbumPage() {
         setIsPlaying(true);
 
         await playPromise;
-        // iOS에서 재생 시작 시 발생하는 미세한 팝음을 삼키기 위해 대기 시간 증가 (550ms)
-        await new Promise(resolve => setTimeout(resolve, 550));
+        // 🚨 일시정지 후 재생 시점의 currentTime이 0~60초 구간이면 source buffer drain을 위해
+        //    1500ms 묵음 유지 (executeSeek와 동일 정책). 1분 이후는 종전 550ms.
+        const resumePos = audioRef.current.currentTime;
+        const silenceDuration = resumePos < 60 ? 1500 : 550;
+        await new Promise(resolve => setTimeout(resolve, silenceDuration));
         audioRef.current.muted = false;
         await doFade(MAX_VOL, 400);
       }
@@ -474,8 +477,8 @@ export default function AlbumPage() {
             if (playRequest !== undefined) {
               await playRequest;
               await playEventPromise;
-              // iOS 안정성을 위해 대기 시간 대폭 증가 (550ms)
-              await new Promise(resolve => setTimeout(resolve, 550));
+              // 🚨 트랙 변경 자동재생은 항상 0초에서 시작 → 0~60초 구간이므로 1500ms 묵음
+              await new Promise(resolve => setTimeout(resolve, 1500));
               audioRef.current.muted = false;
               await doFade(MAX_VOL, 400);
             }

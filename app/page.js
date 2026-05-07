@@ -289,6 +289,8 @@ export default function AlbumPage() {
 
       if (willPlay) {
         if (gainNodeRef.current) gainNodeRef.current.gain.value = 0;
+        // 🚨 Safari는 GainNode를 초기 프리버퍼(~9초) 동안 우회하므로 OS 레벨 muted로 이중 차단
+        audioRef.current.muted = true;
 
         if (audioRef.current.paused) {
           const playPromise = new Promise(resolve => {
@@ -299,13 +301,15 @@ export default function AlbumPage() {
           });
           await audioRef.current.play();
           setIsPlaying(true);
-          await playPromise; 
+          await playPromise;
         }
 
         // 🚨 iOS에서 트랙 앞부분(2초 이내)은 버퍼 플러시가 더 크므로 시간을 더 주어 완전히 차단
         const silenceDuration = newTime < 2 ? 700 : 550;
-        await new Promise(resolve => setTimeout(resolve, silenceDuration)); 
-        await doFade(MAX_VOL, 400); 
+        await new Promise(resolve => setTimeout(resolve, silenceDuration));
+        // gain이 0인 상태에서 unmute → 팝 없이 해제, 이후 GainNode가 페이드인 담당
+        audioRef.current.muted = false;
+        await doFade(MAX_VOL, 400);
       } else {
         audioRef.current.pause();
         setIsPlaying(false);
@@ -316,6 +320,8 @@ export default function AlbumPage() {
       console.error("Seek error:", e);
       setIsPlaying(false);
     } finally {
+      // 에러 발생 시에도 muted가 남아 영구 묵음이 되는 것을 방지
+      if (audioRef.current) audioRef.current.muted = false;
       isSeekingRef.current = false;
     }
   };
@@ -332,10 +338,12 @@ export default function AlbumPage() {
         // 정지 시 iOS 오디오 세션 반환
         if (audioCtxRef.current) await audioCtxRef.current.suspend();
       } else {
-        await ensureAudioContext(); 
+        await ensureAudioContext();
         if (gainNodeRef.current) gainNodeRef.current.gain.value = 0;
         else audioRef.current.volume = 0;
-        
+        // 🚨 Safari GainNode 우회 대비 OS 레벨 muted 이중 차단
+        audioRef.current.muted = true;
+
         const playPromise = new Promise(resolve => {
           const onPlaying = () => { audioRef.current.removeEventListener('playing', onPlaying); resolve(); };
           audioRef.current.addEventListener('playing', onPlaying);
@@ -349,11 +357,12 @@ export default function AlbumPage() {
         await playPromise;
         // iOS에서 재생 시작 시 발생하는 미세한 팝음을 삼키기 위해 대기 시간 증가 (550ms)
         await new Promise(resolve => setTimeout(resolve, 550));
-
+        audioRef.current.muted = false;
         await doFade(MAX_VOL, 400);
       }
     } catch (e) {
       console.error("Playback error:", e);
+      if (audioRef.current) audioRef.current.muted = false;
       setIsPlaying(false);
     } finally {
       isSeekingRef.current = false;
@@ -393,6 +402,8 @@ export default function AlbumPage() {
           await ensureAudioContext();
           if (gainNodeRef.current) gainNodeRef.current.gain.value = 0;
           else audioRef.current.volume = 0;
+          // 🚨 Safari GainNode 우회 대비 OS 레벨 muted 이중 차단 (트랙 변경 시 항상 0초 시작)
+          audioRef.current.muted = true;
 
           // 💡 [추가] 파일 로드가 완료될 때까지 대기
           if (audioRef.current.readyState < 3) {
@@ -416,10 +427,12 @@ export default function AlbumPage() {
               await playEventPromise;
               // iOS 안정성을 위해 대기 시간 대폭 증가 (550ms)
               await new Promise(resolve => setTimeout(resolve, 550));
+              audioRef.current.muted = false;
               await doFade(MAX_VOL, 400);
             }
           } catch (error) {
             console.error("오토플레이 방지됨:", error);
+            audioRef.current.muted = false;
             setIsPlaying(false);
           }
         })();

@@ -688,11 +688,13 @@ export default function AlbumPage() {
                     </button>
                     
                     <button onClick={togglePlay} className="text-[#E63946] active:scale-90 transition-transform hover:text-[#D62828]">
-                      {isPlaying ? (
-                        <svg width="52" height="52" viewBox="0 0 24 24" fill="currentColor" className="drop-shadow-lg"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
-                      ) : (
-                        <svg width="52" height="52" viewBox="0 0 24 24" fill="currentColor" className="drop-shadow-lg"><path d="M8 5v14l11-7z"/></svg>
-                      )}
+                      <span key={isPlaying ? 'pause' : 'play'} className="block leading-none drop-shadow-lg">
+                        {isPlaying ? (
+                          <svg width="52" height="52" viewBox="0 0 24 24" fill="currentColor" style={{ overflow: 'visible' }}><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                        ) : (
+                          <svg width="52" height="52" viewBox="0 0 24 24" fill="currentColor" style={{ overflow: 'visible' }}><path d="M8 5v14l11-7z"/></svg>
+                        )}
+                      </span>
                     </button>
                     
                     <button onClick={() => changeTrack('next')} className="text-gray-500 hover:text-gray-800 active:scale-75 transition-all">

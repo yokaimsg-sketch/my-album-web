@@ -8,12 +8,12 @@ const trackList = [
     번호: 1, 제목: "NONB - Fly again!", 
     앨범아트: "https://pub-eb7063c1256b42148f33d95d25411e8c.r2.dev/cover1.jpg",
     가사데이터: [
-      { 시간: 26, 내용: "꿈속 만난 나의 모습" },
-      { 시간: 32.5, 내용: "그 모습이 아른거려" },
-      { 시간: 39, 내용: "끝이 없는 반복들이" },
-      { 시간: 45.5, 내용: "나에게 또 소리쳐와" },
-      { 시간: 52.5, 내용: "난 왜 흘러가는 시간 속에서" },
-      { 시간: 59, 내용: "되돌아보는 날들만이\n늘어날까" },
+      { 시간: 28, 내용: "꿈속 만난 나의 모습" },
+      { 시간: 34.5, 내용: "그 모습이 아른거려" },
+      { 시간: 41, 내용: "끝이 없는 반복들이" },
+      { 시간: 47.5, 내용: "나에게 또 소리쳐와" },
+      { 시간: 54.5, 내용: "난 왜 흘러가는 시간 속에서" },
+      { 시간: 61, 내용: "되돌아보는 날들만이\n늘어날까" },
       { 시간: 67.5, 내용: "아직 늦지 않았으니까\n걱정은 하지 마" },
       { 시간: 74.5, 내용: "끝까지 선명하게\n비춰주고 있으니까" },
       { 시간: 81, 내용: "눈 감으면 저 멀리\n펼쳐지는 하늘에" },
@@ -47,12 +47,12 @@ const trackList = [
     ],
     음원: "https://pub-eb7063c1256b42148f33d95d25411e8c.r2.dev/track1.wav" 
   },
-  { 번호: 2, 제목: "수록곡 2", 앨범아트: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=500", 가사데이터: [{ 시간: -2, 내용: "두 번째 트랙 가사입니다." }], 음원: "https://pub-eb7063c1256b42148f33d95d25411e8c.r2.dev/track2.wav" },
-  { 번호: 3, 제목: "수록곡 3", 앨범아트: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=500", 가사데이터: [{ 시간: -2, 내용: "준비 중..." }], 음원: "https://pub-eb7063c1256b42148f33d95d25411e8c.r2.dev/track3.wav" },
-  { 번호: 4, 제목: "수록곡 4", 앨범아트: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=500", 가사데이터: [{ 시간: -2, 내용: "준비 중..." }], 음원: "https://pub-eb7063c1256b42148f33d95d25411e8c.r2.dev/track4.wav" },
-  { 번호: 5, 제목: "수록곡 5", 앨범아트: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=500", 가사데이터: [{ 시간: -2, 내용: "준비 중..." }], 음원: "https://pub-eb7063c1256b42148f33d95d25411e8c.r2.dev/track5.wav" },
-  { 번호: 6, 제목: "수록곡 6", 앨범아트: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=500", 가사데이터: [{ 시간: -2, 내용: "준비 중..." }], 음원: "https://pub-eb7063c1256b42148f33d95d25411e8c.r2.dev/track6.wav" },
-  { 번호: 7, 제목: "수록곡 7", 앨범아트: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=500", 가사데이터: [{ 시간: -2, 내용: "준비 중..." }], 음원: "https://pub-eb7063c1256b42148f33d95d25411e8c.r2.dev/track7.wav" },
+  { 번호: 2, 제목: "수록곡 2", 앨범아트: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=500", 가사데이터: [{ 시간: 0, 내용: "두 번째 트랙 가사입니다." }], 음원: "https://pub-eb7063c1256b42148f33d95d25411e8c.r2.dev/track2.wav" },
+  { 번호: 3, 제목: "수록곡 3", 앨범아트: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=500", 가사데이터: [{ 시간: 0, 내용: "준비 중..." }], 음원: "https://pub-eb7063c1256b42148f33d95d25411e8c.r2.dev/track3.wav" },
+  { 번호: 4, 제목: "수록곡 4", 앨범아트: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=500", 가사데이터: [{ 시간: 0, 내용: "준비 중..." }], 음원: "https://pub-eb7063c1256b42148f33d95d25411e8c.r2.dev/track4.wav" },
+  { 번호: 5, 제목: "수록곡 5", 앨범아트: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=500", 가사데이터: [{ 시간: 0, 내용: "준비 중..." }], 음원: "https://pub-eb7063c1256b42148f33d95d25411e8c.r2.dev/track5.wav" },
+  { 번호: 6, 제목: "수록곡 6", 앨범아트: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=500", 가사데이터: [{ 시간: 0, 내용: "준비 중..." }], 음원: "https://pub-eb7063c1256b42148f33d95d25411e8c.r2.dev/track6.wav" },
+  { 번호: 7, 제목: "수록곡 7", 앨범아트: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=500", 가사데이터: [{ 시간: 0, 내용: "준비 중..." }], 음원: "https://pub-eb7063c1256b42148f33d95d25411e8c.r2.dev/track7.wav" },
 ];
 
 export default function AlbumPage() {
@@ -519,7 +519,11 @@ export default function AlbumPage() {
   };
 
   const seekTo = (time) => {
-    executeSeek(time, true);
+    // 🚨 가사 클릭으로 1:05 이전 위치로 이동 시, 1500ms silence 동안 음원이 진행되어
+    //    가사 시작점을 놓치는 문제를 보정. 클릭 시점에만 2초 일찍 seek하여
+    //    silence 끝나는 순간 가사 시작점에 도달하도록 함. (가사 데이터 자체는 원본 유지)
+    const adjusted = time < 65 ? Math.max(0, time - 2) : time;
+    executeSeek(adjusted, true);
   };
 
   const formatTime = (time) => {

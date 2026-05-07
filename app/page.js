@@ -85,8 +85,11 @@ export default function AlbumPage() {
   const lyricRefs = useRef([]);
   const fadeAnimationRef = useRef(null);
   const activeFadeResolve = useRef(null); 
-  const isSeekingRef = useRef(false); 
-  const bgRef = useRef(null); 
+  const isSeekingRef = useRef(false);
+  const bgRef = useRef(null);
+  // 가사 클릭으로 -2초 보정 seek 시, 오디오가 실제 클릭한 가사 시간에 도달할 때까지
+  // active 가사를 클릭된 가사로 잠가둠 (이전 가사가 잠시 highlight되는 문제 방지)
+  const pendingLyricTargetRef = useRef(null);
 
   // === 오디오 설정 ===
   const MAX_VOL = 0.4;
@@ -441,9 +444,11 @@ export default function AlbumPage() {
   useEffect(() => {
     if (audioRef.current && viewState === 'main') {
       audioRef.current.pause();
-      audioRef.current.load(); 
+      audioRef.current.load();
       setCurrentTime(0);
       setActiveLyricIndex(0);
+      // 트랙 변경 시 이전 트랙의 가사 lock 해제
+      pendingLyricTargetRef.current = null;
 
       // 💡 [수정 2] 가사 배열 초기화 (인덱스 오염 방지)
       lyricRefs.current = [];
@@ -519,10 +524,23 @@ export default function AlbumPage() {
   };
 
   const seekTo = (time) => {
+    if (isSeekingRef.current) return; // 진행 중인 seek가 있으면 무시
     // 🚨 가사 클릭으로 1:05 이전 위치로 이동 시, 1500ms silence 동안 음원이 진행되어
     //    가사 시작점을 놓치는 문제를 보정. 클릭 시점에만 2초 일찍 seek하여
     //    silence 끝나는 순간 가사 시작점에 도달하도록 함. (가사 데이터 자체는 원본 유지)
     const adjusted = time < 65 ? Math.max(0, time - 2) : time;
+    if (time !== adjusted) {
+      // 보정 seek 케이스: 오디오가 도달할 때까지 active 가사를 클릭된 가사로 잠가둠
+      const lyrics = trackList[currentTrack - 1].가사데이터;
+      const targetIndex = lyrics.findIndex(l => l.시간 === time);
+      if (targetIndex !== -1) {
+        pendingLyricTargetRef.current = { index: targetIndex, time };
+        setActiveLyricIndex(targetIndex);
+        setCurrentTime(adjusted); // tracking effect의 lock 판정에 stale currentTime 사용 방지
+      }
+    } else {
+      pendingLyricTargetRef.current = null;
+    }
     executeSeek(adjusted, true);
   };
 
@@ -536,8 +554,19 @@ export default function AlbumPage() {
   // --- [가사 트래킹 로직] ---
   useEffect(() => {
     if (!isDragging && viewState === 'main') {
+      // 🚨 가사 클릭 보정 seek 진행 중: 오디오가 클릭된 가사 시간에 도달할 때까지
+      //    active 가사를 클릭된 가사로 고정. 도달 후 lock 해제하고 정상 추적 재개.
+      const pending = pendingLyricTargetRef.current;
+      if (pending !== null) {
+        if (currentTime < pending.time) {
+          if (activeLyricIndex !== pending.index) setActiveLyricIndex(pending.index);
+          return;
+        }
+        pendingLyricTargetRef.current = null;
+      }
+
       const lyrics = trackList[currentTrack - 1].가사데이터;
-      
+
       // 💡 [수정 5] findLastIndex 호환성 버그 해결 (역순 for문 교체)
       let index = -1;
       for (let i = lyrics.length - 1; i >= 0; i--) {

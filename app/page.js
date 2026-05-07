@@ -302,8 +302,8 @@ export default function AlbumPage() {
           await playPromise; 
         }
 
-        // 🚨 iOS 0:00 지점은 버퍼 플러시가 더 크므로 시간을 더 주어 완전히 차단
-        const silenceDuration = newTime === 0 ? 700 : 550;
+        // 🚨 iOS에서 트랙 앞부분(2초 이내)은 버퍼 플러시가 더 크므로 시간을 더 주어 완전히 차단
+        const silenceDuration = newTime < 2 ? 700 : 550;
         await new Promise(resolve => setTimeout(resolve, silenceDuration)); 
         await doFade(MAX_VOL, 400); 
       } else {
@@ -445,6 +445,8 @@ export default function AlbumPage() {
 
   const handlePointerUp = (e) => {
     e.currentTarget.releasePointerCapture(e.pointerId);
+    setIsDragging(false);
+    if (!duration) return;
     const rect = progressBarRef.current.getBoundingClientRect();
     const pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
     const newTime = pos * duration;
@@ -509,7 +511,7 @@ export default function AlbumPage() {
         src={trackList[currentTrack - 1].음원} 
         crossOrigin="anonymous" 
         onLoadedMetadata={(e) => setDuration(e.target.duration)} 
-        onTimeUpdate={() => !isDragging && setCurrentTime(audioRef.current.currentTime)} 
+        onTimeUpdate={() => !isDragging && !isSeekingRef.current && setCurrentTime(audioRef.current.currentTime)}
         onEnded={() => changeTrack('next')} 
         preload="auto" 
         playsInline 
@@ -660,7 +662,7 @@ export default function AlbumPage() {
                 <div className="flex flex-col space-y-3">
                   <div ref={progressBarRef} onPointerDown={(e) => { handlePointerDown(e); }} onPointerMove={(e) => isDragging && handleDrag(e)} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp} className="h-6 flex items-center cursor-pointer relative touch-none group">
                     <div className="h-1.5 bg-gray-300 w-full rounded-full shadow-inner"><div className="h-full bg-[#E63946] rounded-full" style={{ width: (duration ? (currentTime / duration * 100) : 0) + '%' }} /></div>
-                    <div className="absolute w-4 h-4 bg-white rounded-full shadow-md border border-gray-200 transition-transform group-active:scale-125" style={{ left: `calc(${(duration ? (currentTime / duration * 100) : 0)}% - 8px)` }} />
+                    <div className="absolute w-4 h-4 bg-white rounded-full shadow-md border border-gray-200 transition-transform group-active:scale-125" style={{ left: `clamp(0px, calc(${(duration ? (currentTime / duration * 100) : 0)}% - 8px), calc(100% - 16px))` }} />
                   </div>
                   <div className="flex justify-between text-[10px] font-mono text-gray-500 font-medium tracking-tighter px-1"><span>{formatTime(currentTime)}</span><span>{formatTime(duration)}</span></div>
                 </div>

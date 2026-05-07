@@ -109,6 +109,30 @@ export default function AlbumPage() {
     };
   }, []);
 
+  // 🚨 [iOS 복구] 앱 전환 / 화면 잠금 후 복귀 시 AudioContext가 'interrupted' 또는 'suspended'
+  //    상태로 남아 재생이 먹통이 되는 문제를 자동 복구. visibilitychange 이벤트로 감지.
+  useEffect(() => {
+    const onVisibilityChange = async () => {
+      if (document.hidden) return;
+      if (!audioCtxRef.current) return;
+      try {
+        if (audioCtxRef.current.state !== 'running') {
+          await audioCtxRef.current.resume();
+        }
+        if (isPlayingRef.current && audioRef.current?.paused) {
+          await audioRef.current.play().catch(() => {
+            // 자동 재생 차단 등으로 실패한 경우 상태만 동기화
+            setIsPlaying(false);
+          });
+        }
+      } catch (e) {
+        console.error('Visibility resume error:', e);
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange);
+  }, []);
+
   // --- [보안] URL 검증 ---
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -265,17 +289,6 @@ export default function AlbumPage() {
       // 🚨 iOS에서 seek 시 발생하는 미세한 팝음을 막기 위해 일시 정지 필수 (버퍼 비우기)
       audioRef.current.pause();
 
-      // 🚨 [핵심] Web Audio source의 stale buffer 차단:
-      //  - 0~9초 구간으로 seek할 때 MediaElementAudioSourceNode 내부 buffer queue에
-      //    이전 위치의 PCM 데이터가 남아 있어 graph로 출력됨 (gain·muted로 못 막음)
-      //  - source를 graph에서 끊고 + AudioContext 처리 자체를 정지시켜 출력 경로 봉쇄
-      if (sourceRef.current && gainNodeRef.current) {
-        try { sourceRef.current.disconnect(gainNodeRef.current); } catch (e) {}
-      }
-      if (audioCtxRef.current && audioCtxRef.current.state === 'running') {
-        await audioCtxRef.current.suspend();
-      }
-
       const seekPromise = new Promise(resolve => {
         const onSeeked = () => { audioRef.current.removeEventListener('seeked', onSeeked); resolve(); };
         audioRef.current.addEventListener('seeked', onSeeked);
@@ -300,16 +313,8 @@ export default function AlbumPage() {
 
       if (willPlay) {
         if (gainNodeRef.current) gainNodeRef.current.gain.value = 0;
-        // 🚨 Safari는 GainNode를 초기 프리버퍼(~9초) 동안 우회하므로 OS 레벨 muted로 이중 차단
+        // 🚨 OS 레벨 muted: GainNode를 우회하는 source buffer 출력도 차단
         audioRef.current.muted = true;
-
-        // graph 복원: AudioContext 재개 → source 재연결 (이때 gain=0이므로 출력 없음)
-        if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
-          await audioCtxRef.current.resume();
-        }
-        if (sourceRef.current && gainNodeRef.current) {
-          try { sourceRef.current.connect(gainNodeRef.current); } catch (e) {}
-        }
 
         if (audioRef.current.paused) {
           const playPromise = new Promise(resolve => {
@@ -323,29 +328,23 @@ export default function AlbumPage() {
           await playPromise;
         }
 
-        // 🚨 iOS에서 트랙 앞부분(2초 이내)은 버퍼 플러시가 더 크므로 시간을 더 주어 완전히 차단
-        const silenceDuration = newTime < 2 ? 700 : 550;
+        // 🚨 0~60초 구간은 WebKit 프리버퍼에 stale PCM이 남아 graph로 흘러나오므로
+        //    muted+gain=0 상태로 충분히 흘려보내 buffer를 자연 drain (2초)
+        const silenceDuration = newTime < 60 ? 2000 : 550;
         await new Promise(resolve => setTimeout(resolve, silenceDuration));
         // gain이 0인 상태에서 unmute → 팝 없이 해제, 이후 GainNode가 페이드인 담당
         audioRef.current.muted = false;
         await doFade(MAX_VOL, 400);
       } else {
-        // 재생하지 않더라도 다음 재생을 위해 graph 복원
-        if (sourceRef.current && gainNodeRef.current) {
-          try { sourceRef.current.connect(gainNodeRef.current); } catch (e) {}
-        }
         audioRef.current.pause();
         setIsPlaying(false);
-        // AudioContext는 suspend 상태 유지 (재생 시작 시 ensureAudioContext가 resume)
+        // 정지 시 iOS 오디오 세션 반환은 의도적으로 생략 — suspend가 키보드 시스템 사운드 음량 비정상을 유발
       }
     } catch (e) {
       console.error("Seek error:", e);
       setIsPlaying(false);
     } finally {
-      // 에러 발생 시 graph가 끊긴 채로 남아 영구 무음이 되는 것을 방지
-      if (sourceRef.current && gainNodeRef.current) {
-        try { sourceRef.current.connect(gainNodeRef.current); } catch (e) {} // 이미 연결됐으면 무시
-      }
+      // 에러 발생 시에도 muted가 남아 영구 묵음이 되는 것을 방지
       if (audioRef.current) audioRef.current.muted = false;
       isSeekingRef.current = false;
     }
@@ -360,8 +359,8 @@ export default function AlbumPage() {
         await doFade(0, 150);
         audioRef.current.pause();
         setIsPlaying(false);
-        // 정지 시 iOS 오디오 세션 반환
-        if (audioCtxRef.current) await audioCtxRef.current.suspend();
+        // 정지 시 AudioContext.suspend()는 의도적으로 호출 안 함 — 키보드 시스템 사운드 음량을
+        // 비정상으로 만드는 부작용이 있음. visibilitychange 핸들러가 필요 시 resume 처리.
       } else {
         await ensureAudioContext();
         if (gainNodeRef.current) gainNodeRef.current.gain.value = 0;
@@ -410,6 +409,31 @@ export default function AlbumPage() {
       isSeekingRef.current = false;
     }
   };
+
+  // 🚨 [Media Session] 잠금화면 / 제어센터 / 블루투스 컨트롤러에 곡 정보 + 재생 컨트롤 노출.
+  //    PWA 설치 시 백그라운드 재생 가능 (iOS 16.4+). 일반 Safari 탭은 OS 제약으로 백그라운드 정지.
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !navigator.mediaSession) return;
+    if (viewState !== 'main') return;
+    const track = trackList[currentTrack - 1];
+    try {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: track.제목,
+        artist: 'Pro;logue',
+        album: 'The First',
+        artwork: [
+          { src: track.앨범아트, sizes: '512x512', type: 'image/jpeg' },
+        ],
+      });
+      navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+      navigator.mediaSession.setActionHandler('play', () => { togglePlay(); });
+      navigator.mediaSession.setActionHandler('pause', () => { togglePlay(); });
+      navigator.mediaSession.setActionHandler('previoustrack', () => { changeTrack('prev'); });
+      navigator.mediaSession.setActionHandler('nexttrack', () => { changeTrack('next'); });
+    } catch (e) {
+      console.error('MediaSession error:', e);
+    }
+  }, [currentTrack, isPlaying, viewState]);
 
   useEffect(() => {
     if (audioRef.current && viewState === 'main') {

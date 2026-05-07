@@ -1,0 +1,19 @@
+{
+  "name": "Pro;logue : The First",
+  "short_name": "Pro;logue",
+  "description": "Digital Album Experience",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#E63946",
+  "background_color": "#FFFFFF",
+  "icons": [
+    {
+      "src": "/next.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

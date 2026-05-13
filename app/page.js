@@ -1,68 +1,18 @@
 "use client";
 
 import { useState, useRef, useEffect } from 'react';
-
-// 💡 [수정 4] 매 렌더링마다 배열이 새로 생성되는 것을 막기 위해 컴포넌트 외부로 분리
-const trackList = [
-  { 
-    번호: 1, 제목: "NONB - Fly again!", 
-    앨범아트: "https://pub-eb7063c1256b42148f33d95d25411e8c.r2.dev/cover1.jpg",
-    가사데이터: [
-      { 시간: 28, 내용: "꿈속 만난 나의 모습" },
-      { 시간: 34.5, 내용: "그 모습이 아른거려" },
-      { 시간: 41, 내용: "끝이 없는 반복들이" },
-      { 시간: 47.5, 내용: "나에게 또 소리쳐와" },
-      { 시간: 54.5, 내용: "난 왜 흘러가는 시간 속에서" },
-      { 시간: 61, 내용: "되돌아보는 날들만이\n늘어날까" },
-      { 시간: 67.5, 내용: "아직 늦지 않았으니까\n걱정은 하지 마" },
-      { 시간: 74.5, 내용: "끝까지 선명하게\n비춰주고 있으니까" },
-      { 시간: 81, 내용: "눈 감으면 저 멀리\n펼쳐지는 하늘에" },
-      { 시간: 87.5, 내용: "잠깐 동안의 우리 세상으로" },
-      { 시간: 97, 내용: "Fly again!" },
-      { 시간: 103.5, 내용: "Fly again!" },
-      { 시간: 109, 내용: "꿈속 만난 나의 모습" },
-      { 시간: 115.5, 내용: "뒤돌아선" },
-      { 시간: 119, 내용: "모습에 소리쳐봐" },
-      { 시간: 122, 내용: "난 왜 지나가는 시간 속에서" },
-      { 시간: 129, 내용: "후회하는 날들만이\n늘어날까" },
-      { 시간: 135, 내용: "아직 늦지 않았으니까\n걱정은 하지 마" },
-      { 시간: 142, 내용: "끝까지 선명하게\n비춰주고 있으니까" },
-      { 시간: 148.5, 내용: "눈 감으면 저 멀리\n펼쳐지는 하늘에" },
-      { 시간: 155, 내용: "잠깐 동안의\n우리 세상으로" },
-      { 시간: 161, 내용: "날아가 보는 거야" },
-      { 시간: 164, 내용: "우리 어떤 모습이라도" },
-      { 시간: 168.5, 내용: "결국 함께라면" },
-      { 시간: 171.5, 내용: "끝은 나지 않을 거야" },
-      { 시간: 177, 내용: "아무리 높은 벽이 있어도" },
-      { 시간: 181.5, 내용: "우리 세상으로 날아가" },
-      { 시간: 188.5, 내용: "아직 늦지 않았으니까\n걱정은 하지 마" },
-      { 시간: 195, 내용: "이 길의 끝에서 우리\n함께 만날 거니까" },
-      { 시간: 201.5, 내용: "눈을 뜨면 그 앞에\n펼쳐지는 하늘에" },
-      { 시간: 208, 내용: "끝이 없는 우리 세상으로" },
-      { 시간: 214, 내용: "날아가 보는 거야" },
-      { 시간: 218, 내용: "Fly again!" },
-      { 시간: 224, 내용: "Fly again!" },
-      { 시간: 231, 내용: "Fly again!" },
-      { 시간: 238, 내용: "Fly again!" },
-    ],
-    음원: "https://pub-eb7063c1256b42148f33d95d25411e8c.r2.dev/track1.wav" 
-  },
-  { 번호: 2, 제목: "수록곡 2", 앨범아트: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=500", 가사데이터: [{ 시간: 0, 내용: "두 번째 트랙 가사입니다." }], 음원: "https://pub-eb7063c1256b42148f33d95d25411e8c.r2.dev/track2.wav" },
-  { 번호: 3, 제목: "수록곡 3", 앨범아트: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=500", 가사데이터: [{ 시간: 0, 내용: "준비 중..." }], 음원: "https://pub-eb7063c1256b42148f33d95d25411e8c.r2.dev/track3.wav" },
-  { 번호: 4, 제목: "수록곡 4", 앨범아트: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=500", 가사데이터: [{ 시간: 0, 내용: "준비 중..." }], 음원: "https://pub-eb7063c1256b42148f33d95d25411e8c.r2.dev/track4.wav" },
-  { 번호: 5, 제목: "수록곡 5", 앨범아트: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=500", 가사데이터: [{ 시간: 0, 내용: "준비 중..." }], 음원: "https://pub-eb7063c1256b42148f33d95d25411e8c.r2.dev/track5.wav" },
-  { 번호: 6, 제목: "수록곡 6", 앨범아트: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=500", 가사데이터: [{ 시간: 0, 내용: "준비 중..." }], 음원: "https://pub-eb7063c1256b42148f33d95d25411e8c.r2.dev/track6.wav" },
-  { 번호: 7, 제목: "수록곡 7", 앨범아트: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=500", 가사데이터: [{ 시간: 0, 내용: "준비 중..." }], 음원: "https://pub-eb7063c1256b42148f33d95d25411e8c.r2.dev/track7.wav" },
-];
+import { ALBUM_DATA } from '@/lib/albumData';
 
 export default function AlbumPage() {
   // === 시스템 상태 ===
-  const [viewState, setViewState] = useState('loading'); 
+  const [viewState, setViewState] = useState('loading');
   const [urlParams, setUrlParams] = useState({ id: null, token: null });
   const [pinInput, setPinInput] = useState('');
   const [loginError, setLoginError] = useState('');
   const [buyerInfo, setBuyerInfo] = useState(null);
   const [introOpacity, setIntroOpacity] = useState(0);
+  // 검증된 id에 대응하는 앨범 데이터 (트랙·테마·텍스트). URL 검증 성공 시 ALBUM_DATA[id]에서 로드.
+  const [album, setAlbum] = useState(null);
 
   // === UI & 플레이어 상태 ===
   const [currentTab, setCurrentTab] = useState('메인');
@@ -151,6 +101,12 @@ export default function AlbumPage() {
       .then(res => res.json())
       .then(data => {
         if (data.success) {
+          const albumData = ALBUM_DATA[id];
+          if (!albumData) {
+            setViewState('invalid');
+            return;
+          }
+          setAlbum(albumData);
           setUrlParams({ id, token });
           setBuyerInfo(data.buyer);
           setViewState('login');
@@ -400,7 +356,19 @@ export default function AlbumPage() {
   };
 
   const changeTrack = async (direction) => {
-    if (isSeekingRef.current) return;
+    if (isSeekingRef.current || !album) return;
+    const trackCount = album.트랙리스트.length;
+
+    // 트랙이 1개뿐인 앨범: prev/next 버튼은 no-op, 자연 종료 시에만 페이드아웃 후 정지.
+    if (trackCount <= 1) {
+      if (direction === 'next' && audioRef.current?.ended && isPlayingRef.current) {
+        await doFade(0, 150);
+        audioRef.current.pause();
+        setIsPlaying(false);
+      }
+      return;
+    }
+
     isSeekingRef.current = true;
     try {
       const wasPlaying = isPlayingRef.current;
@@ -409,8 +377,8 @@ export default function AlbumPage() {
         audioRef.current.pause();
         // 🚨 오토플레이 유지를 위해 setIsPlaying(false)와 context suspend는 생략함
       }
-      if (direction === 'next') setCurrentTrack(prev => (prev < 7 ? prev + 1 : 1));
-      else setCurrentTrack(prev => (prev > 1 ? prev - 1 : 7));
+      if (direction === 'next') setCurrentTrack(prev => (prev < trackCount ? prev + 1 : 1));
+      else setCurrentTrack(prev => (prev > 1 ? prev - 1 : trackCount));
     } finally {
       isSeekingRef.current = false;
     }
@@ -420,13 +388,14 @@ export default function AlbumPage() {
   //    PWA 설치 시 백그라운드 재생 가능 (iOS 16.4+). 일반 Safari 탭은 OS 제약으로 백그라운드 정지.
   useEffect(() => {
     if (typeof navigator === 'undefined' || !navigator.mediaSession) return;
-    if (viewState !== 'main') return;
-    const track = trackList[currentTrack - 1];
+    if (viewState !== 'main' || !album) return;
+    const track = album.트랙리스트[currentTrack - 1];
+    if (!track) return;
     try {
       navigator.mediaSession.metadata = new MediaMetadata({
         title: track.제목,
-        artist: 'Pro;logue',
-        album: 'The First',
+        artist: album.아티스트,
+        album: album.앨범명,
         artwork: [
           { src: track.앨범아트, sizes: '512x512', type: 'image/jpeg' },
         ],
@@ -439,7 +408,7 @@ export default function AlbumPage() {
     } catch (e) {
       console.error('MediaSession error:', e);
     }
-  }, [currentTrack, isPlaying, viewState]);
+  }, [currentTrack, isPlaying, viewState, album]);
 
   useEffect(() => {
     if (audioRef.current && viewState === 'main') {
@@ -531,7 +500,7 @@ export default function AlbumPage() {
     const adjusted = time < 65 ? Math.max(0, time - 2) : time;
     if (time !== adjusted) {
       // 보정 seek 케이스: 오디오가 도달할 때까지 active 가사를 클릭된 가사로 잠가둠
-      const lyrics = trackList[currentTrack - 1].가사데이터;
+      const lyrics = album.트랙리스트[currentTrack - 1].가사데이터;
       const targetIndex = lyrics.findIndex(l => l.시간 === time);
       if (targetIndex !== -1) {
         pendingLyricTargetRef.current = { index: targetIndex, time };
@@ -565,7 +534,7 @@ export default function AlbumPage() {
         pendingLyricTargetRef.current = null;
       }
 
-      const lyrics = trackList[currentTrack - 1].가사데이터;
+      const lyrics = album?.트랙리스트[currentTrack - 1]?.가사데이터 || [];
 
       // 💡 [수정 5] findLastIndex 호환성 버그 해결 (역순 for문 교체)
       let index = -1;
@@ -581,7 +550,7 @@ export default function AlbumPage() {
       }
     }
     // 💡 [수정 7] deps 경고 해결
-  }, [currentTime, currentTrack, isDragging, viewState, activeLyricIndex]);
+  }, [currentTime, currentTrack, isDragging, viewState, activeLyricIndex, album]);
 
   useEffect(() => {
     if (isAutoScroll && lyricRefs.current[activeLyricIndex] && !isDragging && viewState === 'main' && showLyrics) {
@@ -589,56 +558,71 @@ export default function AlbumPage() {
     }
   }, [activeLyricIndex, isAutoScroll, isDragging, viewState, showLyrics]);
 
+  // 앨범별 브라우저 탭 제목 동기화 (layout.js metadata.title은 generic 유지).
+  useEffect(() => {
+    if (album) document.title = album.제목;
+  }, [album]);
+
   // --- 화면 렌더링 ---
-  if (viewState === 'loading') return <div className="min-h-screen" style={{ background: 'radial-gradient(circle at center, #FFFFFF 0%, #DDE1E5 100%)' }} />;
-  
+  // 기본 배경 (album 로드 전 또는 invalid 화면용)
+  const 기본배경 = 'radial-gradient(circle at center, #FFFFFF 0%, #DDE1E5 100%)';
+  const 활성배경 = album?.테마.배경그라데이션 || 기본배경;
+
+  if (viewState === 'loading') return <div className="min-h-screen" style={{ background: 기본배경 }} />;
+
   if (viewState === 'invalid') return (
-    <div className="min-h-screen flex items-center justify-center p-6 text-center text-gray-900 font-sans" style={{ background: 'radial-gradient(circle at center, #FFFFFF 0%, #DDE1E5 100%)' }}>
+    <div className="min-h-screen flex items-center justify-center p-6 text-center text-gray-900 font-sans" style={{ background: 기본배경 }}>
       <div className="animate-fade-in">
-        <h1 className="text-[#E63946] font-bold mb-4 tracking-widest uppercase">Invalid Access</h1>
+        <h1 className="text-primary font-bold mb-4 tracking-widest uppercase">Invalid Access</h1>
         <p className="text-gray-600 text-sm leading-relaxed">비정상적인 접근입니다.<br/>앨범 전용 링크를 통해 접속해 주세요.</p>
       </div>
     </div>
   );
 
+  // album이 아직 로드되지 않은 시점(로그인 화면 진입 직전 등)에는 기본 테마 유지
+  const 테마스타일 = album ? {
+    '--primary': album.테마.primary,
+    '--primary-hover': album.테마.primaryHover,
+    background: 활성배경,
+  } : { background: 기본배경 };
+
   return (
-    <div ref={bgRef} className="min-h-screen text-gray-900 font-sans overflow-x-hidden relative" style={{ background: 'radial-gradient(circle at center, #FFFFFF 0%, #DDE1E5 100%)' }}>
-      
-      <audio 
-        ref={audioRef} 
-        src={trackList[currentTrack - 1].음원} 
-        crossOrigin="anonymous" 
-        onLoadedMetadata={(e) => setDuration(e.target.duration)} 
+    <div ref={bgRef} className="min-h-screen text-gray-900 font-sans overflow-x-hidden relative" style={테마스타일}>
+
+      <audio
+        ref={audioRef}
+        src={album?.트랙리스트[currentTrack - 1]?.음원}
+        crossOrigin="anonymous"
+        onLoadedMetadata={(e) => setDuration(e.target.duration)}
         onTimeUpdate={() => !isDragging && !isSeekingRef.current && setCurrentTime(audioRef.current.currentTime)}
-        onEnded={() => changeTrack('next')} 
-        preload="auto" 
-        playsInline 
+        onEnded={() => changeTrack('next')}
+        preload="auto"
+        playsInline
       />
 
       {/* 1. 로그인 화면 */}
-      {viewState === 'login' && (
+      {viewState === 'login' && album && (
         <div className="absolute inset-0 flex flex-col items-center justify-center z-50 px-4">
           <div className="max-w-sm w-full space-y-10 text-center animate-fade-in-up">
-            <h1 className="text-4xl font-bold tracking-[0.1em] text-[#E63946] leading-tight drop-shadow-sm">
-              Pro;logue :<br />
-              The First
+            <h1 className="text-4xl font-bold tracking-[0.1em] text-primary leading-tight drop-shadow-sm">
+              {album.제목}
             </h1>
             <div className="space-y-2">
               <p className="text-gray-500 text-xs tracking-widest uppercase font-medium">Digital Experience</p>
-              <p className="text-[#E63946]/60 text-[10px] tracking-widest font-mono uppercase">Buyer No. {buyerInfo?.number}</p>
+              <p className="text-primary/60 text-[10px] tracking-widest font-mono uppercase">Buyer No. {buyerInfo?.number}</p>
             </div>
             <form onSubmit={handleLogin} className="space-y-8 pt-4">
-              <input 
-                type="password" 
-                inputMode="numeric" 
-                maxLength={6} 
-                value={pinInput} 
-                onChange={(e) => setPinInput(e.target.value.replace(/[^0-9]/g, ''))} 
-                placeholder="••••••" 
-                className="w-full bg-transparent border-b-2 border-gray-400 text-gray-900 text-center px-4 py-4 focus:outline-none focus:border-[#E63946] transition-all tracking-[0.8em] text-3xl font-light placeholder-gray-300" 
+              <input
+                type="password"
+                inputMode="numeric"
+                maxLength={6}
+                value={pinInput}
+                onChange={(e) => setPinInput(e.target.value.replace(/[^0-9]/g, ''))}
+                placeholder="••••••"
+                className="w-full bg-transparent border-b-2 border-gray-400 text-gray-900 text-center px-4 py-4 focus:outline-none focus:border-primary transition-all tracking-[0.8em] text-3xl font-light placeholder-gray-300"
               />
-              {loginError && <p className="text-[#E63946] text-[10px] tracking-wider font-bold">{loginError}</p>}
-              <button type="submit" className="w-full bg-[#E63946] text-white font-bold py-4 rounded-xl active:scale-95 transition-all text-sm tracking-widest shadow-lg shadow-[#E63946]/30 hover:bg-[#D62828]">
+              {loginError && <p className="text-primary text-[10px] tracking-wider font-bold">{loginError}</p>}
+              <button type="submit" className="w-full bg-primary text-white font-bold py-4 rounded-xl active:scale-95 transition-all text-sm tracking-widest shadow-lg shadow-primary/30 hover:bg-primary-hover">
                 ACCESS NOW
               </button>
             </form>
@@ -651,26 +635,27 @@ export default function AlbumPage() {
         <div className="absolute inset-0 flex flex-col items-center justify-center z-50 px-6 text-center transition-opacity duration-1000" style={{ opacity: introOpacity / 100 }}>
           <p className="text-gray-500 text-xs tracking-[0.4em] mb-6 uppercase font-medium">Welcome</p>
           <h1 className="text-2xl font-light leading-relaxed text-gray-800">
-            당신은 <span className="text-[#E63946] font-bold underline underline-offset-8 decoration-1">{buyerInfo?.number}번째</span><br/>
+            당신은 <span className="text-primary font-bold underline underline-offset-8 decoration-1">{buyerInfo?.number}번째</span><br/>
             앨범 구매자이십니다.
           </h1>
         </div>
       )}
 
       {/* 3. 메인 플레이어 */}
-      {viewState === 'main' && (
+      {viewState === 'main' && album && (
+        // 추후 album.레이아웃 값에 따라 다른 variant 컴포넌트로 분기할 수 있도록 구조 유지.
         <div className="animate-fade-in pb-56">
-          
+
           <div className="sticky top-0 z-40 bg-white/70 backdrop-blur-xl border-b border-white/50 flex justify-center space-x-12 p-5 shadow-sm">
-            <button onClick={() => setCurrentTab('메인')} className={`font-bold transition-colors ${currentTab === '메인' ? 'text-[#E63946] border-b-2 border-[#E63946] pb-1' : 'text-gray-500 hover:text-gray-800'}`}>Main</button>
-            <button onClick={() => setCurrentTab('비하인드')} className={`font-bold transition-colors ${currentTab === '비하인드' ? 'text-[#E63946] border-b-2 border-[#E63946] pb-1' : 'text-gray-500 hover:text-gray-800'}`}>Behind</button>
+            <button onClick={() => setCurrentTab('메인')} className={`font-bold transition-colors ${currentTab === '메인' ? 'text-primary border-b-2 border-primary pb-1' : 'text-gray-500 hover:text-gray-800'}`}>Main</button>
+            <button onClick={() => setCurrentTab('비하인드')} className={`font-bold transition-colors ${currentTab === '비하인드' ? 'text-primary border-b-2 border-primary pb-1' : 'text-gray-500 hover:text-gray-800'}`}>Behind</button>
           </div>
 
           {currentTab === '메인' && (
             <div className="p-4 max-w-xl mx-auto space-y-6 mt-4">
-              
-              <div className="bg-[#E63946]/10 border border-[#E63946]/20 text-[#E63946] text-xs font-bold text-center py-2.5 rounded-full tracking-widest shadow-sm">
-                NO.{buyerInfo?.number} 구매자님을 위한 Pro;logue
+
+              <div className="bg-primary/10 border border-primary/20 text-primary text-xs font-bold text-center py-2.5 rounded-full tracking-widest shadow-sm">
+                NO.{buyerInfo?.number} 구매자님을 위한 {album.배지텍스트}
               </div>
 
               <div className="bg-white/40 backdrop-blur-md rounded-3xl border border-white/60 overflow-hidden shadow-lg">
@@ -680,11 +665,28 @@ export default function AlbumPage() {
                 </div>
                 <div className={`transition-all duration-500 ease-in-out overflow-hidden ${isListOpen ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0'}`}>
                   <div className="p-5 pt-0 space-y-3">
-                    {trackList.map((t) => (
-                      <button key={t.번호} onClick={() => {setCurrentTrack(t.번호); setIsListOpen(false);}} className={`w-full text-left p-4 rounded-2xl transition-all font-medium ${currentTrack === t.번호 ? 'bg-[#E63946] text-white shadow-md shadow-[#E63946]/20' : 'bg-white/50 text-gray-700 hover:bg-white/80'}`}>
-                        {String(t.번호).padStart(2, '0')}. {t.제목}
-                      </button>
-                    ))}
+                    {album.트랙리스트.map((t) => {
+                      const 단일트랙 = album.트랙리스트.length <= 1;
+                      const isActive = currentTrack === t.번호;
+                      return (
+                        <button
+                          key={t.번호}
+                          onClick={() => {
+                            if (단일트랙) return;
+                            setCurrentTrack(t.번호);
+                            setIsListOpen(false);
+                          }}
+                          disabled={단일트랙}
+                          className={`w-full text-left p-4 rounded-2xl transition-all font-medium ${
+                            isActive
+                              ? 'bg-primary text-white shadow-md shadow-primary/20'
+                              : 'bg-white/50 text-gray-700 hover:bg-white/80'
+                          } ${단일트랙 ? 'cursor-default' : ''}`}
+                        >
+                          {String(t.번호).padStart(2, '0')}. {t.제목}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
@@ -695,23 +697,23 @@ export default function AlbumPage() {
                 {/* --- 앨범아트 모드 --- */}
                 <div className={`absolute inset-0 p-8 pb-16 flex items-center justify-center transition-all duration-700 ease-in-out ${showLyrics ? 'opacity-0 scale-95 pointer-events-none' : 'opacity-100 scale-100'}`}>
                    <div className="w-full max-w-[280px] aspect-square bg-gray-200 rounded-[2rem] shadow-2xl border-4 border-white/80 overflow-hidden relative flex items-center justify-center">
-                      <img src={trackList[currentTrack - 1].앨범아트} alt="Album Art" className="w-full h-full object-cover" />
+                      <img src={album.트랙리스트[currentTrack - 1].앨범아트} alt="Album Art" className="w-full h-full object-cover" />
                    </div>
                 </div>
 
                 {/* --- 가사 모드 --- */}
                 <div className={`absolute inset-0 p-8 flex flex-col pb-6 transition-all duration-700 ease-in-out ${showLyrics ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8 pointer-events-none'}`}>
                   <div className="w-full flex justify-between items-center mb-6 shrink-0">
-                    <h1 className="text-xl font-bold text-[#E63946] tracking-wider drop-shadow-sm truncate pr-4">
-                      {trackList[currentTrack - 1].제목}
+                    <h1 className="text-xl font-bold text-primary tracking-wider drop-shadow-sm truncate pr-4">
+                      {album.트랙리스트[currentTrack - 1].제목}
                     </h1>
-                    <button onClick={() => setIsAutoScroll(!isAutoScroll)} className={`text-[8px] px-3 py-1.5 rounded-full border tracking-widest transition-all shrink-0 ${isAutoScroll ? 'bg-[#E63946] text-white border-[#E63946] font-bold shadow-sm' : 'text-gray-500 border-gray-300 bg-white/50'}`}>
+                    <button onClick={() => setIsAutoScroll(!isAutoScroll)} className={`text-[8px] px-3 py-1.5 rounded-full border tracking-widest transition-all shrink-0 ${isAutoScroll ? 'bg-primary text-white border-primary font-bold shadow-sm' : 'text-gray-500 border-gray-300 bg-white/50'}`}>
                       AUTO
                     </button>
                   </div>
-                  
+
                   <div ref={lyricContainerRef} className="w-full flex-grow overflow-y-auto overflow-x-hidden space-y-8 px-2 scrollbar-hide py-16">
-                    {trackList[currentTrack - 1].가사데이터.map((lyric, index) => (
+                    {album.트랙리스트[currentTrack - 1].가사데이터.map((lyric, index) => (
                       <div 
                         key={index} 
                         ref={el => lyricRefs.current[index] = el} 
@@ -751,28 +753,28 @@ export default function AlbumPage() {
                 
                 {/* 1층: 곡 제목 (중앙) */}
                 <div className="text-center px-4">
-                  <div className="text-[#E63946] font-bold text-sm tracking-widest uppercase drop-shadow-sm truncate">
-                    {trackList[currentTrack - 1].제목}
+                  <div className="text-primary font-bold text-sm tracking-widest uppercase drop-shadow-sm truncate">
+                    {album.트랙리스트[currentTrack - 1].제목}
                   </div>
                 </div>
 
                 {/* 2층: 진행 바 (페이더) */}
                 <div className="flex flex-col space-y-3">
                   <div ref={progressBarRef} onPointerDown={(e) => { handlePointerDown(e); }} onPointerMove={(e) => isDragging && handleDrag(e)} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp} className="h-6 flex items-center cursor-pointer relative touch-none group">
-                    <div className="h-1.5 bg-gray-300 w-full rounded-full shadow-inner"><div className="h-full bg-[#E63946] rounded-full" style={{ width: (duration ? (currentTime / duration * 100) : 0) + '%' }} /></div>
+                    <div className="h-1.5 bg-gray-300 w-full rounded-full shadow-inner"><div className="h-full bg-primary rounded-full" style={{ width: (duration ? (currentTime / duration * 100) : 0) + '%' }} /></div>
                     <div className="absolute w-4 h-4 bg-white rounded-full shadow-md border border-gray-200 transition-transform group-active:scale-125" style={{ left: `clamp(0px, calc(${(duration ? (currentTime / duration * 100) : 0)}% - 8px), calc(100% - 16px))` }} />
                   </div>
                   <div className="flex justify-between text-[10px] font-mono text-gray-500 font-medium tracking-tighter px-1"><span>{formatTime(currentTime)}</span><span>{formatTime(duration)}</span></div>
                 </div>
-                
+
                 {/* 3층: 컨트롤러 (이전/재생/다음 & 가사 토글) */}
                 <div className="flex items-center justify-center relative pt-2">
                   <div className="flex items-center space-x-10">
                     <button onClick={() => changeTrack('prev')} className="text-gray-500 hover:text-gray-800 active:scale-75 transition-all">
                       <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
                     </button>
-                    
-                    <button onClick={togglePlay} className="text-[#E63946] active:scale-90 transition-transform hover:text-[#D62828]">
+
+                    <button onClick={togglePlay} className="text-primary active:scale-90 transition-transform hover:text-primary-hover">
                       <span key={isPlaying ? 'pause' : 'play'} className="block leading-none drop-shadow-lg">
                         {isPlaying ? (
                           <svg width="52" height="52" viewBox="0 0 24 24" fill="currentColor" style={{ overflow: 'visible' }}><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
@@ -781,16 +783,16 @@ export default function AlbumPage() {
                         )}
                       </span>
                     </button>
-                    
+
                     <button onClick={() => changeTrack('next')} className="text-gray-500 hover:text-gray-800 active:scale-75 transition-all">
                       <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M16 6h2v12h-2zm-10.5 0l8.5 6-8.5 6z"/></svg>
                     </button>
                   </div>
-                  
+
                   {/* 가사 토글 버튼 */}
-                  <button 
-                    onClick={() => setShowLyrics(!showLyrics)} 
-                    className={`absolute right-0 p-2 transition-all active:scale-90 ${showLyrics ? 'text-[#E63946] drop-shadow-md' : 'text-gray-400 hover:text-gray-800'}`}
+                  <button
+                    onClick={() => setShowLyrics(!showLyrics)}
+                    className={`absolute right-0 p-2 transition-all active:scale-90 ${showLyrics ? 'text-primary drop-shadow-md' : 'text-gray-400 hover:text-gray-800'}`}
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM9.5 13H8c0-1.5 1.5-3 1.5-3V8H7v5h1.5S8.5 14.5 7 14.5V16c2 0 2.5-3 2.5-3zm6 0H14c0-1.5 1.5-3 1.5-3V8h-2v5h1.5s0 1.5-1.5 1.5V16c2 0 2.5-3 2.5-3z"/>

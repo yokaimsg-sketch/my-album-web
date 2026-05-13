@@ -3,11 +3,17 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  /* 앨범별 테마 기본값 — page.js wrapper에서 album.테마 값으로 override.
+     Tailwind v4는 --color-*에 색상값을 직접 등록하면 opacity modifier(bg-primary/10 등)도 자동 처리. */
+  --primary: #E63946;
+  --primary-hover: #D62828;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }

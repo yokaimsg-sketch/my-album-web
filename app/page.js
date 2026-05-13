@@ -579,15 +579,15 @@ export default function AlbumPage() {
     </div>
   );
 
-  // album이 아직 로드되지 않은 시점(로그인 화면 진입 직전 등)에는 기본 테마 유지
-  const 테마스타일 = album ? {
-    '--primary': album.테마.primary,
-    '--primary-hover': album.테마.primaryHover,
-    background: 활성배경,
-  } : { background: 기본배경 };
+  // 🚨 wrapper의 inline style에 CSS variable(--primary 등)을 매번 주입하면 setCurrentTime
+  //    매 250ms re-render마다 React가 inline style을 reconcile → iOS Safari가 wrapper 자손
+  //    전체 cascade를 재평가 → backdrop-blur 외부의 var(--color-primary) 참조 element들의
+  //    paint 갱신 → backdrop-filter가 이를 감지해 매 frame 재합성 → 사각형 점멸 발생.
+  //    1번 앨범의 색상이 globals.css 기본값(#E63946)과 동일하므로 inline override 자체가 불필요.
+  //    추후 다른 앨범에 다른 색상이 필요하면 그때 별도 컴포넌트 분기로 처리.
 
   return (
-    <div ref={bgRef} className="min-h-screen text-gray-900 font-sans overflow-x-hidden relative" style={테마스타일}>
+    <div ref={bgRef} className="min-h-screen text-gray-900 font-sans overflow-x-hidden relative" style={{ background: 활성배경 }}>
 
       <audio
         ref={audioRef}

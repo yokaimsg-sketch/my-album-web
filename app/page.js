@@ -742,8 +742,10 @@ export default function AlbumPage() {
           )}
 
           {/* 하단 플레이어 (수직 스택 구조) */}
+          {/* 🚨 isolate: backdrop-blur 컨테이너가 자식 GPU 합성 레이어(drop-shadow / transform)와
+                 분리되어, 자식 paint pass에 따라 backdrop이 사각형으로 깜빡이는 mobile Safari 버그 차단. */}
           <div className={`fixed bottom-0 left-0 right-0 z-50 flex justify-center pointer-events-none transition-transform duration-500 ${isMinimized ? 'translate-y-[calc(100%-60px)]' : 'translate-y-0'}`}>
-            <div className="w-full max-w-md bg-white/70 border-t border-white/80 rounded-t-[2.5rem] shadow-[0_-15px_40px_rgba(0,0,0,0.06)] backdrop-blur-2xl pointer-events-auto flex flex-col px-8 pb-10">
+            <div className="isolate w-full max-w-md bg-white/70 border-t border-white/80 rounded-t-[2.5rem] shadow-[0_-15px_40px_rgba(0,0,0,0.06)] backdrop-blur-2xl pointer-events-auto flex flex-col px-8 pb-10">
               
               <div onClick={() => setIsMinimized(!isMinimized)} className="w-full h-10 flex items-center justify-center cursor-pointer active:opacity-40">
                 <div className="w-10 h-1.5 bg-gray-300 rounded-full" />
@@ -774,14 +776,18 @@ export default function AlbumPage() {
                       <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
                     </button>
 
+                    {/* 🚨 SVG 자체는 unmount/remount하지 않고 <path>만 key로 교체 →
+                           재생 버튼 그림자(drop-shadow) GPU 캐시는 무효화하되, SVG 합성 레이어는 유지.
+                           이전엔 <span key>로 wrapper 전체를 remount했는데, 그 방식이 backdrop-blur
+                           컨테이너 위에서 사각형 깜빡임을 유발했음. overflow:visible 유지하여 그림자 클립 방지. */}
                     <button onClick={togglePlay} className="text-primary active:scale-90 transition-transform hover:text-primary-hover">
-                      <span key={isPlaying ? 'pause' : 'play'} className="block leading-none drop-shadow-lg">
+                      <svg width="52" height="52" viewBox="0 0 24 24" fill="currentColor" className="drop-shadow-lg" style={{ overflow: 'visible' }}>
                         {isPlaying ? (
-                          <svg width="52" height="52" viewBox="0 0 24 24" fill="currentColor" style={{ overflow: 'visible' }}><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                          <path key="pause" d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
                         ) : (
-                          <svg width="52" height="52" viewBox="0 0 24 24" fill="currentColor" style={{ overflow: 'visible' }}><path d="M8 5v14l11-7z"/></svg>
+                          <path key="play" d="M8 5v14l11-7z" />
                         )}
-                      </span>
+                      </svg>
                     </button>
 
                     <button onClick={() => changeTrack('next')} className="text-gray-500 hover:text-gray-800 active:scale-75 transition-all">

@@ -742,10 +742,8 @@ export default function AlbumPage() {
           )}
 
           {/* 하단 플레이어 (수직 스택 구조) */}
-          {/* 🚨 isolate: backdrop-blur 컨테이너가 자식 GPU 합성 레이어(drop-shadow / transform)와
-                 분리되어, 자식 paint pass에 따라 backdrop이 사각형으로 깜빡이는 mobile Safari 버그 차단. */}
           <div className={`fixed bottom-0 left-0 right-0 z-50 flex justify-center pointer-events-none transition-transform duration-500 ${isMinimized ? 'translate-y-[calc(100%-60px)]' : 'translate-y-0'}`}>
-            <div className="isolate w-full max-w-md bg-white/70 border-t border-white/80 rounded-t-[2.5rem] shadow-[0_-15px_40px_rgba(0,0,0,0.06)] backdrop-blur-2xl pointer-events-auto flex flex-col px-8 pb-10">
+            <div className="w-full max-w-md bg-white/70 border-t border-white/80 rounded-t-[2.5rem] shadow-[0_-15px_40px_rgba(0,0,0,0.06)] backdrop-blur-2xl pointer-events-auto flex flex-col px-8 pb-10">
               
               <div onClick={() => setIsMinimized(!isMinimized)} className="w-full h-10 flex items-center justify-center cursor-pointer active:opacity-40">
                 <div className="w-10 h-1.5 bg-gray-300 rounded-full" />
@@ -761,11 +759,31 @@ export default function AlbumPage() {
                 </div>
 
                 {/* 2층: 진행 바 (페이더) */}
+                {/* 🚨 fill은 width 대신 scaleX, thumb은 left 대신 translate3d로 처리.
+                       inline style의 layout property(width/left)는 매 frame layout/paint를 트리거하여
+                       부모 backdrop-blur-2xl을 매 frame 재합성시켜 사각형 점멸·자국 잔류를 유발했음.
+                       transform 기반으로 바꾸면 GPU composite-only로 처리되어 backdrop이 흔들리지 않음. */}
                 <div className="flex flex-col space-y-3">
-                  <div ref={progressBarRef} onPointerDown={(e) => { handlePointerDown(e); }} onPointerMove={(e) => isDragging && handleDrag(e)} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp} className="h-6 flex items-center cursor-pointer relative touch-none group">
-                    <div className="h-1.5 bg-gray-300 w-full rounded-full shadow-inner"><div className="h-full bg-primary rounded-full" style={{ width: (duration ? (currentTime / duration * 100) : 0) + '%' }} /></div>
-                    <div className="absolute w-4 h-4 bg-white rounded-full shadow-md border border-gray-200 transition-transform group-active:scale-125" style={{ left: `clamp(0px, calc(${(duration ? (currentTime / duration * 100) : 0)}% - 8px), calc(100% - 16px))` }} />
-                  </div>
+                  {(() => {
+                    const pct = duration ? (currentTime / duration * 100) : 0;
+                    return (
+                      <div ref={progressBarRef} onPointerDown={(e) => { handlePointerDown(e); }} onPointerMove={(e) => isDragging && handleDrag(e)} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp} className="h-6 flex items-center cursor-pointer relative touch-none group">
+                        <div className="h-1.5 bg-gray-300 w-full rounded-full shadow-inner overflow-hidden">
+                          <div
+                            className="h-full w-full bg-primary rounded-full origin-left"
+                            style={{ transform: `scaleX(${pct / 100})` }}
+                          />
+                        </div>
+                        {/* thumb track: 부모 폭에서 thumb 폭(16px)만큼 줄여 thumb translateX %가 0~100%로 정확히 매핑되게 함 */}
+                        <div className="absolute inset-y-0 left-0 right-4 pointer-events-none flex items-center">
+                          <div
+                            className="w-4 h-4 bg-white rounded-full shadow-md border border-gray-200 transition-transform group-active:scale-125 will-change-transform"
+                            style={{ transform: `translate3d(${pct}%, 0, 0)` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })()}
                   <div className="flex justify-between text-[10px] font-mono text-gray-500 font-medium tracking-tighter px-1"><span>{formatTime(currentTime)}</span><span>{formatTime(duration)}</span></div>
                 </div>
 
@@ -776,17 +794,17 @@ export default function AlbumPage() {
                       <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
                     </button>
 
-                    {/* 🚨 SVG 자체는 unmount/remount하지 않고 <path>만 key로 교체 →
-                           재생 버튼 그림자(drop-shadow) GPU 캐시는 무효화하되, SVG 합성 레이어는 유지.
-                           이전엔 <span key>로 wrapper 전체를 remount했는데, 그 방식이 backdrop-blur
-                           컨테이너 위에서 사각형 깜빡임을 유발했음. overflow:visible 유지하여 그림자 클립 방지. */}
+                    {/* 🚨 drop-shadow GPU 캐시는 SVG element 단위로 캐싱되므로 <path key>로는 무효화 불가.
+                           SVG element 자체에 key를 두어 isPlaying 토글 시 element를 remount → 새 그림자 생성.
+                           페이더 transform 전환으로 backdrop-blur가 안정화된 상태이므로 1회 remount의
+                           paint는 시각적 영향 없음. overflow:visible로 그림자 사각 클립 방지. */}
                     <button onClick={togglePlay} className="text-primary active:scale-90 transition-transform hover:text-primary-hover">
-                      <svg width="52" height="52" viewBox="0 0 24 24" fill="currentColor" className="drop-shadow-lg" style={{ overflow: 'visible' }}>
-                        {isPlaying ? (
-                          <path key="pause" d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
-                        ) : (
-                          <path key="play" d="M8 5v14l11-7z" />
-                        )}
+                      <svg
+                        key={isPlaying ? 'pause' : 'play'}
+                        width="52" height="52" viewBox="0 0 24 24" fill="currentColor"
+                        className="drop-shadow-lg" style={{ overflow: 'visible' }}
+                      >
+                        <path d={isPlaying ? "M6 19h4V5H6v14zm8-14v14h4V5h-4z" : "M8 5v14l11-7z"} />
                       </svg>
                     </button>
 

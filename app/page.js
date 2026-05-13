@@ -749,41 +749,25 @@ export default function AlbumPage() {
                 <div className="w-10 h-1.5 bg-gray-300 rounded-full" />
               </div>
               
+              {/* 🚨 하단 플레이어 영역은 backdrop-blur-2xl 위에서 CSS variable 기반 색상(text-primary 등)
+                     이 매 paint마다 var(--color-primary)를 resolve하며 iOS Safari가 점멸을 유발했음.
+                     이 영역에 한해 색상을 hardcoded hex(#E63946/#D62828)로 사용하여 점멸 차단.
+                     앨범별 색상 분리는 추후 컴포넌트 분기 또는 inline style 패턴으로 보강 가능. */}
               <div className="space-y-6">
-                
+
                 {/* 1층: 곡 제목 (중앙) */}
                 <div className="text-center px-4">
-                  <div className="text-primary font-bold text-sm tracking-widest uppercase drop-shadow-sm truncate">
+                  <div className="text-[#E63946] font-bold text-sm tracking-widest uppercase drop-shadow-sm truncate">
                     {album.트랙리스트[currentTrack - 1].제목}
                   </div>
                 </div>
 
                 {/* 2층: 진행 바 (페이더) */}
-                {/* 🚨 fill은 width 대신 scaleX, thumb은 left 대신 translate3d로 처리.
-                       inline style의 layout property(width/left)는 매 frame layout/paint를 트리거하여
-                       부모 backdrop-blur-2xl을 매 frame 재합성시켜 사각형 점멸·자국 잔류를 유발했음.
-                       transform 기반으로 바꾸면 GPU composite-only로 처리되어 backdrop이 흔들리지 않음. */}
                 <div className="flex flex-col space-y-3">
-                  {(() => {
-                    const pct = duration ? (currentTime / duration * 100) : 0;
-                    return (
-                      <div ref={progressBarRef} onPointerDown={(e) => { handlePointerDown(e); }} onPointerMove={(e) => isDragging && handleDrag(e)} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp} className="h-6 flex items-center cursor-pointer relative touch-none group">
-                        <div className="h-1.5 bg-gray-300 w-full rounded-full shadow-inner overflow-hidden">
-                          <div
-                            className="h-full w-full bg-primary rounded-full origin-left"
-                            style={{ transform: `scaleX(${pct / 100})` }}
-                          />
-                        </div>
-                        {/* thumb track: 부모 폭에서 thumb 폭(16px)만큼 줄여 thumb translateX %가 0~100%로 정확히 매핑되게 함 */}
-                        <div className="absolute inset-y-0 left-0 right-4 pointer-events-none flex items-center">
-                          <div
-                            className="w-4 h-4 bg-white rounded-full shadow-md border border-gray-200 transition-transform group-active:scale-125 will-change-transform"
-                            style={{ transform: `translate3d(${pct}%, 0, 0)` }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })()}
+                  <div ref={progressBarRef} onPointerDown={(e) => { handlePointerDown(e); }} onPointerMove={(e) => isDragging && handleDrag(e)} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp} className="h-6 flex items-center cursor-pointer relative touch-none group">
+                    <div className="h-1.5 bg-gray-300 w-full rounded-full shadow-inner"><div className="h-full bg-[#E63946] rounded-full" style={{ width: (duration ? (currentTime / duration * 100) : 0) + '%' }} /></div>
+                    <div className="absolute w-4 h-4 bg-white rounded-full shadow-md border border-gray-200 transition-transform group-active:scale-125" style={{ left: `clamp(0px, calc(${(duration ? (currentTime / duration * 100) : 0)}% - 8px), calc(100% - 16px))` }} />
+                  </div>
                   <div className="flex justify-between text-[10px] font-mono text-gray-500 font-medium tracking-tighter px-1"><span>{formatTime(currentTime)}</span><span>{formatTime(duration)}</span></div>
                 </div>
 
@@ -794,18 +778,14 @@ export default function AlbumPage() {
                       <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
                     </button>
 
-                    {/* 🚨 drop-shadow GPU 캐시는 SVG element 단위로 캐싱되므로 <path key>로는 무효화 불가.
-                           SVG element 자체에 key를 두어 isPlaying 토글 시 element를 remount → 새 그림자 생성.
-                           페이더 transform 전환으로 backdrop-blur가 안정화된 상태이므로 1회 remount의
-                           paint는 시각적 영향 없음. overflow:visible로 그림자 사각 클립 방지. */}
-                    <button onClick={togglePlay} className="text-primary active:scale-90 transition-transform hover:text-primary-hover">
-                      <svg
-                        key={isPlaying ? 'pause' : 'play'}
-                        width="52" height="52" viewBox="0 0 24 24" fill="currentColor"
-                        className="drop-shadow-lg" style={{ overflow: 'visible' }}
-                      >
-                        <path d={isPlaying ? "M6 19h4V5H6v14zm8-14v14h4V5h-4z" : "M8 5v14l11-7z"} />
-                      </svg>
+                    <button onClick={togglePlay} className="text-[#E63946] active:scale-90 transition-transform hover:text-[#D62828]">
+                      <span key={isPlaying ? 'pause' : 'play'} className="block leading-none drop-shadow-lg">
+                        {isPlaying ? (
+                          <svg width="52" height="52" viewBox="0 0 24 24" fill="currentColor" style={{ overflow: 'visible' }}><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                        ) : (
+                          <svg width="52" height="52" viewBox="0 0 24 24" fill="currentColor" style={{ overflow: 'visible' }}><path d="M8 5v14l11-7z"/></svg>
+                        )}
+                      </span>
                     </button>
 
                     <button onClick={() => changeTrack('next')} className="text-gray-500 hover:text-gray-800 active:scale-75 transition-all">
@@ -816,7 +796,7 @@ export default function AlbumPage() {
                   {/* 가사 토글 버튼 */}
                   <button
                     onClick={() => setShowLyrics(!showLyrics)}
-                    className={`absolute right-0 p-2 transition-all active:scale-90 ${showLyrics ? 'text-primary drop-shadow-md' : 'text-gray-400 hover:text-gray-800'}`}
+                    className={`absolute right-0 p-2 transition-all active:scale-90 ${showLyrics ? 'text-[#E63946] drop-shadow-md' : 'text-gray-400 hover:text-gray-800'}`}
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM9.5 13H8c0-1.5 1.5-3 1.5-3V8H7v5h1.5S8.5 14.5 7 14.5V16c2 0 2.5-3 2.5-3zm6 0H14c0-1.5 1.5-3 1.5-3V8h-2v5h1.5s0 1.5-1.5 1.5V16c2 0 2.5-3 2.5-3z"/>

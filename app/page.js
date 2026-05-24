@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { ALBUM_DATA } from '@/lib/albumData';
+import BehindTab from './components/BehindTab';
 
 export default function AlbumPage() {
   // === 시스템 상태 ===
@@ -222,6 +223,35 @@ export default function AlbumPage() {
       }
     });
   };
+
+  // 비하인드 탭의 비디오/데모 오디오 재생 직전에 호출되는 얇은 헬퍼.
+  // 기존 doFade/audioRef/setIsPlaying만 소비하며 오디오 내부 로직은 변경하지 않음.
+  // 페이드아웃이 완전히 끝난 뒤에야 resolve되므로 호출부에서 `await` 후 비디오 재생.
+  const pauseAudioWithFade = useCallback(async () => {
+    if (!isPlayingRef.current) return;
+    await doFade(0, 150);
+    audioRef.current?.pause();
+    setIsPlaying(false);
+  }, []);
+
+  // 비하인드 탭의 현재 활성 미디어를 즉시 정지하는 함수를 보관.
+  // BehindTab 내 AudioCard/VideoPlayer가 마운트될 때 자기 자신의 stop 함수를 등록한다.
+  const stopBehindMediaRef = useRef(null);
+  const registerStopBehindMedia = useCallback((fn) => {
+    stopBehindMediaRef.current = fn;
+  }, []);
+
+  // 메인 오디오가 재생되는 모든 경로(togglePlay, seek 후 재개, 트랙 변경 등)에서
+  // 'play' 이벤트가 발화 → 비하인드 활성 미디어를 즉시 pause해 동시 재생 방지.
+  // ⚠ <audio> 엘리먼트는 viewState === 'main' 진입 후에야 마운트되므로
+  //    deps에 viewState/album을 넣어 audioRef.current가 채워진 시점에 재실행되도록 함.
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    const handler = () => stopBehindMediaRef.current?.();
+    audio.addEventListener('play', handler);
+    return () => audio.removeEventListener('play', handler);
+  }, [viewState, album]);
 
   // 💡 가사 클릭 시 팝 노이즈 차단 (Seamless Seek + 동기화)
   const executeSeek = async (newTime, forcePlay = false) => {
@@ -604,9 +634,18 @@ export default function AlbumPage() {
       {viewState === 'login' && album && (
         <div className="absolute inset-0 flex flex-col items-center justify-center z-50 px-4">
           <div className="max-w-sm w-full space-y-10 text-center animate-fade-in-up">
-            <h1 className="text-4xl font-bold tracking-[0.1em] text-primary leading-tight drop-shadow-sm">
-              {album.제목}
-            </h1>
+            <div className="flex flex-col items-center space-y-3">
+              {album.로고 && (
+                <img
+                  src={album.로고}
+                  alt={album.제목}
+                  className="w-24 h-24 object-contain drop-shadow-sm"
+                />
+              )}
+              <h1 className="text-xl font-bold tracking-[0.1em] text-primary leading-tight">
+                {album.제목}
+              </h1>
+            </div>
             <div className="space-y-2">
               <p className="text-gray-500 text-xs tracking-widest uppercase font-medium">Digital Experience</p>
               <p className="text-primary/60 text-[10px] tracking-widest font-mono uppercase">Buyer No. {buyerInfo?.number}</p>
@@ -736,9 +775,19 @@ export default function AlbumPage() {
           )}
 
           {currentTab === '비하인드' && (
-            <div className="p-20 text-center animate-pulse">
-              <p className="text-gray-500 text-xs tracking-[0.5em] uppercase font-bold">Loading Archive...</p>
-            </div>
+            album.비하인드 ? (
+              <BehindTab
+                data={album.비하인드}
+                logoSrc={album.로고}
+                albumTitle={album.제목}
+                pauseAudioWithFade={pauseAudioWithFade}
+                registerStopBehindMedia={registerStopBehindMedia}
+              />
+            ) : (
+              <div className="p-20 text-center animate-pulse">
+                <p className="text-gray-500 text-xs tracking-[0.5em] uppercase font-bold">Loading Archive...</p>
+              </div>
+            )
           )}
 
           {/* 하단 플레이어 (수직 스택 구조) */}

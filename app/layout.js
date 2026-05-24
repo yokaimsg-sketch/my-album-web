@@ -15,12 +15,15 @@ export const metadata = {
   title: "Pro;logue : The First",
   description: "Digital Album Experience",
   manifest: "/manifest.json",
-  themeColor: "#E63946",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
     title: "Pro;logue",
   },
+};
+
+export const viewport = {
+  themeColor: "#E63946",
 };
 
 export default function RootLayout({ children }) {

@@ -73,7 +73,7 @@ export default function BehindTab({ data, logoSrc, albumTitle, pauseAudioWithFad
           </svg>
         </button>
 
-        <div className="flex-1 bg-white/40 backdrop-blur-md rounded-3xl border border-white/60 aspect-square overflow-hidden shadow-lg relative">
+        <div className="flex-1 min-w-0 flex items-center justify-center">
           <BehindViewer
             key={safeIndex}
             item={current}
@@ -153,34 +153,44 @@ function Thumbnail({ item }) {
 }
 
 function BehindViewer({ item, pauseAudioWithFade, registerStopBehindMedia }) {
+  // 오디오/비디오 카드: 예측 가능한 정사각형 카드(기존 동작 유지).
+  const squareCardClass =
+    "w-full aspect-square bg-white/40 backdrop-blur-md rounded-3xl border border-white/60 overflow-hidden shadow-lg relative";
+
   if (item.종류 === '이미지') {
+    // 사진은 원본 비율 유지. max-w-full로 가로 폭 초과 방지, max-h-[65vh]로 세로 캡.
+    // 두 제약을 동시에 만족하면서 브라우저가 자연 비율을 유지해 축소함.
     return (
       <img
         src={item.src}
         alt=""
-        className="w-full h-full object-cover"
+        className="block max-w-full max-h-[65vh] rounded-3xl shadow-lg border border-white/60"
       />
     );
   }
   if (item.종류 === '오디오') {
     return (
-      <AudioCard
-        src={item.src}
-        title={item.제목}
-        pauseAudioWithFade={pauseAudioWithFade}
-        registerStopBehindMedia={registerStopBehindMedia}
-      />
+      <div className={squareCardClass}>
+        <AudioCard
+          src={item.src}
+          title={item.제목}
+          pauseAudioWithFade={pauseAudioWithFade}
+          registerStopBehindMedia={registerStopBehindMedia}
+        />
+      </div>
     );
   }
   if (item.종류 === 'mp4' || item.종류 === 'hls') {
     return (
-      <VideoPlayer
-        src={item.src}
-        isHls={item.종류 === 'hls'}
-        poster={item.thumb}
-        pauseAudioWithFade={pauseAudioWithFade}
-        registerStopBehindMedia={registerStopBehindMedia}
-      />
+      <div className={squareCardClass}>
+        <VideoPlayer
+          src={item.src}
+          isHls={item.종류 === 'hls'}
+          poster={item.thumb}
+          pauseAudioWithFade={pauseAudioWithFade}
+          registerStopBehindMedia={registerStopBehindMedia}
+        />
+      </div>
     );
   }
   return null;

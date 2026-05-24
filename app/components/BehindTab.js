@@ -181,16 +181,15 @@ function BehindViewer({ item, pauseAudioWithFade, registerStopBehindMedia }) {
     );
   }
   if (item.종류 === 'mp4' || item.종류 === 'hls') {
+    // 비디오는 thumb 이미지의 원본 비율로 컨테이너가 결정됨 (VideoPlayer 내부에서 처리).
     return (
-      <div className={squareCardClass}>
-        <VideoPlayer
-          src={item.src}
-          isHls={item.종류 === 'hls'}
-          poster={item.thumb}
-          pauseAudioWithFade={pauseAudioWithFade}
-          registerStopBehindMedia={registerStopBehindMedia}
-        />
-      </div>
+      <VideoPlayer
+        src={item.src}
+        isHls={item.종류 === 'hls'}
+        poster={item.thumb}
+        pauseAudioWithFade={pauseAudioWithFade}
+        registerStopBehindMedia={registerStopBehindMedia}
+      />
     );
   }
   return null;
@@ -319,6 +318,24 @@ function AudioCard({ src, title, pauseAudioWithFade, registerStopBehindMedia }) 
 function VideoPlayer({ src, isHls, poster, pauseAudioWithFade, registerStopBehindMedia }) {
   const videoRef = useRef(null);
   const skipNextFadeRef = useRef(false);
+  // thumb 이미지의 원본 비율을 측정하여 컨테이너 비율로 사용. null이면 정사각형 폴백.
+  const [thumbAspect, setThumbAspect] = useState(null);
+
+  useEffect(() => {
+    if (!poster) {
+      setThumbAspect(null);
+      return;
+    }
+    const img = new window.Image();
+    let cancelled = false;
+    img.onload = () => {
+      if (!cancelled && img.naturalWidth > 0 && img.naturalHeight > 0) {
+        setThumbAspect({ w: img.naturalWidth, h: img.naturalHeight });
+      }
+    };
+    img.src = poster;
+    return () => { cancelled = true; };
+  }, [poster]);
 
   // 메인 오디오가 재생을 시작할 때 즉시 정지되도록 stop 함수를 등록.
   useEffect(() => {
@@ -378,15 +395,24 @@ function VideoPlayer({ src, isHls, poster, pauseAudioWithFade, registerStopBehin
   };
 
   return (
-    <video
-      ref={videoRef}
-      src={isHls ? undefined : src}
-      poster={poster}
-      controls
-      playsInline
-      preload="metadata"
-      onPlay={handlePlay}
-      className="w-full h-full object-contain bg-black"
-    />
+    <div
+      className="w-full bg-white/40 backdrop-blur-md rounded-3xl border border-white/60 overflow-hidden shadow-lg relative"
+      style={
+        thumbAspect
+          ? { aspectRatio: `${thumbAspect.w} / ${thumbAspect.h}`, maxHeight: '65vh' }
+          : { aspectRatio: '1 / 1' }
+      }
+    >
+      <video
+        ref={videoRef}
+        src={isHls ? undefined : src}
+        poster={poster}
+        controls
+        playsInline
+        preload="metadata"
+        onPlay={handlePlay}
+        className="w-full h-full object-contain bg-black"
+      />
+    </div>
   );
 }

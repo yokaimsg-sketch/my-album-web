@@ -98,8 +98,13 @@ body {
 
 /* ── 메인: 앨범 헤더 ───────────────────────────────────── */
 .album-head { padding: 8px 28px 6px; }
+.head-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; min-height: 22px; }
+.mono-toggle { display: inline-flex; gap: 2px; padding: 3px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); cursor: pointer; }
+.mt-opt { font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; font-weight: 700; padding: 5px 10px; border-radius: 999px; color: var(--muted); transition: all 0.25s ease; }
+.mt-opt.on { background: var(--accent); color: var(--on-accent); }
 .album-title { font-size: 40px; line-height: 0.96; font-weight: 700; letter-spacing: -0.03em; color: var(--text); min-width: 0; }
-.album-sub { margin-top: 10px; display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 13px; font-weight: 500; }
+.album-title.long { font-size: 26px; line-height: 1.08; letter-spacing: -0.04em; }
+.album-sub { margin-top: 10px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; color: var(--muted); font-size: 13px; font-weight: 500; }
 .album-sub .name { font-weight: 700; color: var(--text); }
 .album-sub .sep { width: 3px; height: 3px; border-radius: 50%; background: var(--faint); }
 
@@ -118,6 +123,30 @@ body {
 [data-treatment="earthen"] .hero .corner { position: absolute; width: 16px; height: 16px; z-index: 5; border: 2px solid var(--accent); opacity: 0.8; }
 [data-treatment="earthen"] .hero .corner.tl { top: 10px; left: 10px; border-right: 0; border-bottom: 0; }
 [data-treatment="earthen"] .hero .corner.br { bottom: 10px; right: 10px; border-left: 0; border-top: 0; }
+
+/* mono (id=4) — 흑백 갤러리 시그니처 */
+[data-treatment="mono"] .hero { border-radius: 4px; border: 1px solid var(--border-strong); }
+.dotmark { position: absolute; z-index: 6; width: 7px; height: 7px; border-radius: 50%; background: #fff; mix-blend-mode: difference; top: 14px; }
+.dotmark.left { left: calc(50% - 26px); }
+.dotmark.right { right: calc(50% - 26px); }
+
+/* 트랙리스트 (다중 트랙) */
+.tracklist { margin: 18px 24px 0; display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 18px; overflow: hidden; background: var(--surface); }
+.track-row { display: flex; align-items: center; gap: 14px; padding: 15px 18px; border: none; background: transparent; cursor: pointer; text-align: left; width: 100%; border-bottom: 1px solid var(--border); transition: background 0.2s ease; }
+.track-row:last-child { border-bottom: none; }
+.track-row:active { background: var(--accent-soft); }
+.track-row.active { background: var(--accent-soft); }
+.tr-no { font-family: var(--font-mono); font-size: 12px; font-weight: 700; color: var(--faint); width: 22px; flex: 0 0 auto; }
+.track-row.active .tr-no { color: var(--accent); }
+.tr-title { flex: 1; min-width: 0; font-size: 16px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tr-state { flex: 0 0 auto; color: var(--muted); display: grid; place-items: center; width: 24px; height: 24px; }
+.track-row.active .tr-state { color: var(--accent); }
+
+/* mono 로고 보정 — 라이트는 multiply, 다크는 반전 */
+[data-treatment="mono"][data-mode="light"] .login-logo,
+[data-treatment="mono"][data-mode="light"] .behind-head .lg { mix-blend-mode: multiply; }
+[data-treatment="mono"][data-mode="dark"] .login-logo,
+[data-treatment="mono"][data-mode="dark"] .behind-head .lg { filter: invert(1); mix-blend-mode: screen; }
 
 /* 가사 면 */
 .lyrics-face { display: flex; flex-direction: column; background: var(--surface-strong); backdrop-filter: blur(16px); }
@@ -144,7 +173,7 @@ body {
 .dock-grip { display: block; width: 100%; padding: 2px 0 10px; margin-top: -4px; background: none; border: none; cursor: pointer; }
 .grip-bar { display: block; width: 38px; height: 4px; border-radius: 999px; margin: 0 auto; background: var(--border-strong); transition: background 0.2s ease; }
 .dock-grip:active .grip-bar { background: var(--accent); }
-.player-body { overflow: hidden; max-height: 200px; opacity: 1; transition: max-height 0.38s cubic-bezier(0.22,1,0.36,1), opacity 0.26s ease, margin 0.38s ease; }
+.player-body { overflow: hidden; max-height: 230px; opacity: 1; padding-bottom: 22px; margin-bottom: -22px; transition: max-height 0.38s cubic-bezier(0.22,1,0.36,1), opacity 0.26s ease, margin-top 0.38s ease; }
 .player-dock.collapsed .player-body { max-height: 0; opacity: 0; margin-top: -6px; }
 .player-row { display: flex; align-items: center; gap: 14px; }
 .player-thumb { width: 46px; height: 46px; border-radius: 12px; object-fit: cover; flex: 0 0 auto; box-shadow: 0 4px 12px -4px rgba(0,0,0,0.4); }

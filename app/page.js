@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { ALBUM_DATA } from "@/lib/albumData";
-import { ALBUM_THEMES, DEFAULT_THEME, applyThemeVars } from "@/lib/albumThemes";
+import { ALBUM_THEMES, DEFAULT_THEME, applyThemeVars, resolveTheme } from "@/lib/albumThemes";
 import { Icon } from "./components/icons";
 import { LoginScreen, IntroScreen } from "./components/AuthScreens";
 import PlayerDock from "./components/PlayerDock";
@@ -26,6 +26,7 @@ export default function AlbumPage() {
   const [activeLyricIndex, setActiveLyricIndex] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [showLyrics, setShowLyrics] = useState(false);
+  const [monoMode, setMonoMode] = useState("light"); // id=4 라이트/다크 토글
 
   // === 참조(Refs) ===
   const audioRef = useRef(null);
@@ -48,9 +49,17 @@ export default function AlbumPage() {
   useEffect(() => { isPlayingRef.current = isPlaying; }, [isPlaying]);
 
   // 테마 토큰을 루트에 1회 주입 (매 틱 리렌더 inline style 회피 → iOS backdrop-blur 점멸 방지)
-  const theme = album ? (ALBUM_THEMES[album.식별자] || DEFAULT_THEME) : DEFAULT_THEME;
+  // mono(id=4)는 라이트/다크 토글을 지원하므로 monoMode까지 반영.
+  const theme = album ? resolveTheme(album.식별자, monoMode) : DEFAULT_THEME;
   useEffect(() => {
-    if (rootRef.current && album) applyThemeVars(rootRef.current, album.식별자);
+    if (rootRef.current && album) applyThemeVars(rootRef.current, album.식별자, monoMode);
+  }, [album, monoMode]);
+
+  // 앨범 진입 시 mono 기본 모드 설정
+  useEffect(() => {
+    if (!album) return;
+    const t = ALBUM_THEMES[album.식별자];
+    if (t && t.defaultMode) setMonoMode(t.defaultMode);
   }, [album]);
 
   // 언마운트 시 메모리 누수 방지
@@ -532,12 +541,25 @@ export default function AlbumPage() {
           {currentTab === "메인" && (
             <div className="wrap">
               <header className="album-head fade-up">
-                <div className="kicker" style={{ marginBottom: 12 }}>{theme.kicker}</div>
-                <h1 className="album-title kr">{album.제목}</h1>
+                <div className="head-top">
+                  <div className="kicker">{theme.kicker}</div>
+                  {theme.toggleable && (
+                    <button
+                      className="mono-toggle"
+                      onClick={() => setMonoMode(monoMode === "light" ? "dark" : "light")}
+                      aria-label="라이트/다크 전환"
+                    >
+                      <span className={"mt-opt" + (monoMode === "light" ? " on" : "")}>Light</span>
+                      <span className={"mt-opt" + (monoMode === "dark" ? " on" : "")}>Dark</span>
+                    </button>
+                  )}
+                </div>
+                <h1 className={"album-title kr" + (album.제목.length > 12 ? " long" : "")}>{album.제목}</h1>
                 <div className="album-sub">
                   <span className="name">{album.아티스트}</span>
                   <span className="sep" />
                   <span className="label-mono">{album.발매}</span>
+                  {album.트랙리스트.length > 1 && (<><span className="sep" /><span className="label-mono">{album.트랙리스트.length} Tracks</span></>)}
                 </div>
               </header>
 
@@ -547,6 +569,7 @@ export default function AlbumPage() {
 
               <div className="hero fade-up d2">
                 {theme.treatment === "earthen" && (<><span className="corner tl" /><span className="corner br" /></>)}
+                {theme.treatment === "mono" && (<><span className="dotmark left" /><span className="dotmark right" /></>)}
                 <div className={"hero-face" + (showLyrics ? " hide" : "")}>
                   <img className="hero-art" src={track.앨범아트} alt="cover" />
                   {theme.treatment === "analog" && <span className="filmstamp">&apos;25 8 12</span>}
@@ -586,6 +609,31 @@ export default function AlbumPage() {
                 <button className={!showLyrics ? "active" : ""} onClick={() => setShowLyrics(false)}><Icon.image s={15} />Cover</button>
                 <button className={showLyrics ? "active" : ""} onClick={() => setShowLyrics(true)}><Icon.lyrics s={15} />Lyrics</button>
               </div>
+
+              {album.트랙리스트.length > 1 && (
+                <div className="tracklist fade-up d3">
+                  {album.트랙리스트.map((tr, i) => {
+                    const active = i === currentTrack - 1;
+                    return (
+                      <button
+                        key={i}
+                        className={"track-row" + (active ? " active" : "")}
+                        onClick={() => {
+                          if (active) { togglePlay(); return; }
+                          setCurrentTrack(tr.번호);
+                          if (!isPlaying) setIsPlaying(true); // 트랙 변경 effect가 오토플레이 처리
+                        }}
+                      >
+                        <span className="tr-no">{String(tr.번호).padStart(2, "0")}</span>
+                        <span className="tr-title kr">{tr.제목}</span>
+                        <span className="tr-state">
+                          {active && isPlaying ? <Icon.pause s={16} /> : <Icon.play s={16} />}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
 
               {album.노트 && <p className="album-note fade-up d4">{album.노트}</p>}
             </div>

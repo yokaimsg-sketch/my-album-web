@@ -4,7 +4,8 @@ const crypto = require('crypto');
 const buyers = [
   { number: 1, token: "a7b2c9d1", pin: "123456" },
   { number: 2, token: "e4f8g2h1", pin: "654321" },
-  { number: 3, token: "m5n9p2r4", pin: "111111" }
+  { number: 3, token: "m5n9p2r4", pin: "111111" },
+  { number: 4, token: "x1y7z4w8", pin: "123456" }
 ];
 
 console.log("=========================================");

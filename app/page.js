@@ -494,6 +494,11 @@ export default function AlbumPage() {
   const lyrics = track?.가사데이터 || [];
   const hasRealLyrics = lyrics.length > 1 || (lyrics[0] && lyrics[0].내용 !== "준비 중...");
 
+  // 플레이어 제목에서 "아티스트 - " 접두사 제거 (아래에 아티스트명이 별도로 표시되므로).
+  const displayTitle = track
+    ? track.제목.replace(new RegExp("^\\s*" + album.아티스트.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s*[-–—]\\s*"), "")
+    : "";
+
   return (
     <div ref={rootRef} className="app-root" data-mode={theme.mode} data-treatment={theme.treatment}>
       <audio
@@ -508,7 +513,7 @@ export default function AlbumPage() {
       />
 
       {viewState === "login" && album && (
-        <LoginScreen logoSrc={album.로고} albumTitle={album.제목} buyerNo={buyerInfo?.number} onVerify={handleVerify} />
+        <LoginScreen logoSrc={album.로고} albumTitle={album.제목} buyerNo={buyerInfo?.number} logoH={theme.logoH} onVerify={handleVerify} />
       )}
 
       {viewState === "intro" && (
@@ -604,7 +609,7 @@ export default function AlbumPage() {
           )}
 
           <PlayerDock
-            title={track.제목}
+            title={displayTitle}
             artist={album.아티스트}
             art={track.앨범아트}
             isPlaying={isPlaying}

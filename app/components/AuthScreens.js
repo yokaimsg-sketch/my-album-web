@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 
 // PIN 로그인 — 입력/키패드는 자체 관리, 검증은 부모(onVerify)가 /api/auth로 수행.
-export function LoginScreen({ logoSrc, albumTitle, buyerNo, onVerify }) {
+export function LoginScreen({ logoSrc, albumTitle, buyerNo, logoH = 40, onVerify }) {
   const [pin, setPin] = useState("");
   const [err, setErr] = useState(false);
   const [checking, setChecking] = useState(false);
@@ -32,7 +32,7 @@ export function LoginScreen({ logoSrc, albumTitle, buyerNo, onVerify }) {
 
   return (
     <div className="overlay fade-in">
-      {logoSrc && <img className="login-logo" src={logoSrc} alt={albumTitle} style={{ height: 56 }} />}
+      {logoSrc && <img className="login-logo" src={logoSrc} alt={albumTitle} style={{ height: Math.round(logoH * 1.5) }} />}
       <div className="kicker" style={{ marginBottom: 8 }}>Private Access</div>
       <p className="label-mono" style={{ marginBottom: 30 }}>Buyer No. {buyerNo}</p>
 

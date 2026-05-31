@@ -101,13 +101,18 @@ function AudioCard({ src, title, pauseAudioWithFade, registerStopBehindMedia }) 
     return () => registerStopBehindMedia(null);
   }, [registerStopBehindMedia]);
 
-  const toggle = async () => {
+  const toggle = () => {
     const a = audioRef.current;
     if (!a) return;
     if (a.paused) {
-      if (pauseAudioWithFade) await pauseAudioWithFade();
-      try { await a.play(); setIsPlaying(true); } catch { setIsPlaying(false); }
-    } else { a.pause(); setIsPlaying(false); }
+      // 메인 오디오 페이드아웃은 await 하지 않고 병렬로 — play()를 클릭 제스처 직후
+      // 동기로 호출해야 iOS/Safari의 사용자 활성화(user-activation) 요건을 만족한다.
+      if (pauseAudioWithFade) pauseAudioWithFade();
+      a.play().then(() => setIsPlaying(true)).catch((e) => { console.error("Demo play error:", e); setIsPlaying(false); });
+    } else {
+      a.pause();
+      setIsPlaying(false);
+    }
   };
 
   const seekFromPointer = (e) => {

@@ -55,6 +55,15 @@ export default function AlbumPage() {
     if (rootRef.current && album) applyThemeVars(rootRef.current, album.식별자, monoMode);
   }, [album, monoMode]);
 
+  // 모바일 브라우저 상단 바 색을 활성 테마 배경(--bg-solid)으로 동적 갱신.
+  useEffect(() => {
+    const c = theme?.vars?.["--bg-solid"];
+    if (!c) return;
+    let m = document.querySelector('meta[name="theme-color"]');
+    if (!m) { m = document.createElement("meta"); m.setAttribute("name", "theme-color"); document.head.appendChild(m); }
+    m.setAttribute("content", c);
+  }, [album, monoMode]);
+
   // 앨범 진입 시 mono 기본 모드 설정
   useEffect(() => {
     if (!album) return;
@@ -522,7 +531,7 @@ export default function AlbumPage() {
       />
 
       {viewState === "login" && album && (
-        <LoginScreen logoSrc={album.로고} albumTitle={album.제목} buyerNo={buyerInfo?.number} logoH={theme.logoH} onVerify={handleVerify} />
+        <LoginScreen logoSrc={album.로고} albumTitle={album.제목} buyerNo={buyerInfo?.number} logoH={theme.logoH} toggleable={theme.toggleable} monoMode={monoMode} setMonoMode={setMonoMode} onVerify={handleVerify} />
       )}
 
       {viewState === "intro" && (

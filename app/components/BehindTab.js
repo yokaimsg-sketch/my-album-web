@@ -34,9 +34,12 @@ export default function BehindTab({ data, logoSrc, albumTitle, logoH = 30, pause
 
   if (!items.length) {
     return (
-      <div className="behind" style={{ textAlign: "center", paddingTop: 90 }}>
-        <span className="kicker">Behind the Scenes</span>
-        <p className="kr" style={{ color: "var(--muted)", fontSize: 15, fontWeight: 600, marginTop: 16 }}>준비 중입니다</p>
+      <div className="behind" style={{ textAlign: "center", paddingTop: 40 }}>
+        <div className="behind-head">
+          {logoSrc && <img className="lg" src={logoSrc} alt={albumTitle} style={{ height: logoH }} />}
+          <span className="kicker">Behind the Scenes</span>
+        </div>
+        <p className="kr" style={{ color: "var(--muted)", fontSize: 15, fontWeight: 600, marginTop: 50 }}>준비 중입니다</p>
         <p className="label-mono" style={{ marginTop: 10 }}>Coming Soon</p>
       </div>
     );

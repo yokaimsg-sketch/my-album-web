@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 
 // PIN 로그인 — 입력/키패드는 자체 관리, 검증은 부모(onVerify)가 /api/auth로 수행.
-export function LoginScreen({ logoSrc, albumTitle, buyerNo, logoH = 40, onVerify }) {
+export function LoginScreen({ logoSrc, albumTitle, buyerNo, logoH = 40, toggleable, monoMode, setMonoMode, onVerify }) {
   const [pin, setPin] = useState("");
   const [err, setErr] = useState(false);
   const [checking, setChecking] = useState(false);
@@ -32,6 +32,16 @@ export function LoginScreen({ logoSrc, albumTitle, buyerNo, logoH = 40, onVerify
 
   return (
     <div className="overlay fade-in">
+      {toggleable && (
+        <button
+          className="mono-toggle login-mode-toggle"
+          onClick={() => setMonoMode(monoMode === "light" ? "dark" : "light")}
+          aria-label="라이트/다크 전환"
+        >
+          <span className={"mt-opt" + (monoMode === "light" ? " on" : "")}>Light</span>
+          <span className={"mt-opt" + (monoMode === "dark" ? " on" : "")}>Dark</span>
+        </button>
+      )}
       {logoSrc && <img className="login-logo" src={logoSrc} alt={albumTitle} style={{ height: Math.round(logoH * 1.5) }} />}
       <div className="kicker" style={{ marginBottom: 8 }}>Private Access</div>
       <p className="label-mono" style={{ marginBottom: 30 }}>Buyer No. {buyerNo}</p>

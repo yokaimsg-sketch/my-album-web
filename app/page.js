@@ -1,167 +1,131 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from 'react';
-import { ALBUM_DATA } from '@/lib/albumData';
-import BehindTab from './components/BehindTab';
+import { useState, useRef, useEffect, useCallback } from "react";
+import { ALBUM_DATA } from "@/lib/albumData";
+import { ALBUM_THEMES, DEFAULT_THEME, applyThemeVars } from "@/lib/albumThemes";
+import { Icon } from "./components/icons";
+import { LoginScreen, IntroScreen } from "./components/AuthScreens";
+import PlayerDock from "./components/PlayerDock";
+import BehindTab from "./components/BehindTab";
 
 export default function AlbumPage() {
   // === 시스템 상태 ===
-  const [viewState, setViewState] = useState('loading');
+  const [viewState, setViewState] = useState("loading"); // loading | invalid | login | intro | main
   const [urlParams, setUrlParams] = useState({ id: null, token: null });
-  const [pinInput, setPinInput] = useState('');
-  const [loginError, setLoginError] = useState('');
   const [buyerInfo, setBuyerInfo] = useState(null);
   const [introOpacity, setIntroOpacity] = useState(0);
-  // 검증된 id에 대응하는 앨범 데이터 (트랙·테마·텍스트). URL 검증 성공 시 ALBUM_DATA[id]에서 로드.
   const [album, setAlbum] = useState(null);
 
   // === UI & 플레이어 상태 ===
-  const [currentTab, setCurrentTab] = useState('메인');
+  const [currentTab, setCurrentTab] = useState("메인"); // 메인 | 비하인드
   const [currentTrack, setCurrentTrack] = useState(1);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  // 💡 [수정 8] 데드코드 삭제 완료 (const isMuted = false;)
-  const [isListOpen, setIsListOpen] = useState(false);
   const [isAutoScroll, setIsAutoScroll] = useState(true);
   const [activeLyricIndex, setActiveLyricIndex] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
-  const [isMinimized, setIsMinimized] = useState(false);
-  const [showLyrics, setShowLyrics] = useState(false); 
+  const [showLyrics, setShowLyrics] = useState(false);
 
   // === 참조(Refs) ===
   const audioRef = useRef(null);
   const progressBarRef = useRef(null);
-  const lyricContainerRef = useRef(null); 
+  const lyricContainerRef = useRef(null);
   const lyricRefs = useRef([]);
   const fadeAnimationRef = useRef(null);
-  const activeFadeResolve = useRef(null); 
+  const activeFadeResolve = useRef(null);
   const isSeekingRef = useRef(false);
-  const bgRef = useRef(null);
-  // 가사 클릭으로 -2초 보정 seek 시, 오디오가 실제 클릭한 가사 시간에 도달할 때까지
-  // active 가사를 클릭된 가사로 잠가둠 (이전 가사가 잠시 highlight되는 문제 방지)
+  const rootRef = useRef(null);
   const pendingLyricTargetRef = useRef(null);
 
   // === 오디오 설정 ===
   const MAX_VOL = 0.4;
-
-  // 디지털 믹서 참조
   const audioCtxRef = useRef(null);
   const gainNodeRef = useRef(null);
   const sourceRef = useRef(null);
 
-  // 💡 [수정 3] 스테일 클로저 방지를 위한 재생 상태 추적 Ref
   const isPlayingRef = useRef(isPlaying);
-  useEffect(() => {
-    isPlayingRef.current = isPlaying;
-  }, [isPlaying]);
+  useEffect(() => { isPlayingRef.current = isPlaying; }, [isPlaying]);
 
-  // 💡 [수정 6] 언마운트 시 메모리 누수 방지 (단, AudioContext 파괴 코드는 버그 유발로 제외)
+  // 테마 토큰을 루트에 1회 주입 (매 틱 리렌더 inline style 회피 → iOS backdrop-blur 점멸 방지)
+  const theme = album ? (ALBUM_THEMES[album.식별자] || DEFAULT_THEME) : DEFAULT_THEME;
   useEffect(() => {
-    return () => {
-      if (fadeAnimationRef.current) cancelAnimationFrame(fadeAnimationRef.current);
-    };
+    if (rootRef.current && album) applyThemeVars(rootRef.current, album.식별자);
+  }, [album]);
+
+  // 언마운트 시 메모리 누수 방지
+  useEffect(() => {
+    return () => { if (fadeAnimationRef.current) cancelAnimationFrame(fadeAnimationRef.current); };
   }, []);
 
-  // 🚨 [iOS 복구] 앱 전환 / 화면 잠금 후 복귀 시 AudioContext가 'interrupted' 또는 'suspended'
-  //    상태로 남아 재생이 먹통이 되는 문제를 자동 복구. visibilitychange 이벤트로 감지.
+  // iOS 복귀 시 AudioContext 자동 복구
   useEffect(() => {
     const onVisibilityChange = async () => {
       if (document.hidden) return;
       if (!audioCtxRef.current) return;
       try {
-        if (audioCtxRef.current.state !== 'running') {
-          await audioCtxRef.current.resume();
-        }
+        if (audioCtxRef.current.state !== "running") await audioCtxRef.current.resume();
         if (isPlayingRef.current && audioRef.current?.paused) {
-          await audioRef.current.play().catch(() => {
-            // 자동 재생 차단 등으로 실패한 경우 상태만 동기화
-            setIsPlaying(false);
-          });
+          await audioRef.current.play().catch(() => setIsPlaying(false));
         }
-      } catch (e) {
-        console.error('Visibility resume error:', e);
-      }
+      } catch (e) { console.error("Visibility resume error:", e); }
     };
-    document.addEventListener('visibilitychange', onVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', onVisibilityChange);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", onVisibilityChange);
   }, []);
 
   // --- [보안] URL 검증 ---
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const id = params.get('id');
-    const token = params.get('token');
+    const id = params.get("id");
+    const token = params.get("token");
 
     if (id && token) {
-      fetch('/api/auth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'verify', id, token })
+      fetch("/api/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "verify", id, token }),
       })
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          const albumData = ALBUM_DATA[id];
-          if (!albumData) {
-            setViewState('invalid');
-            return;
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success) {
+            const albumData = ALBUM_DATA[id];
+            if (!albumData) { setViewState("invalid"); return; }
+            setAlbum(albumData);
+            setUrlParams({ id, token });
+            setBuyerInfo(data.buyer);
+            setViewState("login");
+          } else {
+            setViewState("invalid");
           }
-          setAlbum(albumData);
-          setUrlParams({ id, token });
-          setBuyerInfo(data.buyer);
-          setViewState('login');
-        } else {
-          setViewState('invalid');
-        }
-      })
-      .catch(() => setViewState('invalid'));
+        })
+        .catch(() => setViewState("invalid"));
     } else {
-      setViewState('invalid'); 
+      setViewState("invalid");
     }
   }, []);
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    
-    // 💡 [수정 10] PIN 유효성 검사 강화 (6자리 숫자 정규식)
-    if (!/^\d{6}$/.test(pinInput)) {
-      setLoginError('정확한 6자리 숫자를 입력해주세요.');
-      return;
-    }
-    
+  // PIN 검증 — 원본 /api/auth login 로직 보존. LoginScreen이 호출.
+  const handleVerify = useCallback(async (pin) => {
+    if (!/^\d{6}$/.test(pin)) return false;
     try {
-      const res = await fetch('/api/auth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          action: 'login', 
-          id: urlParams.id, 
-          token: urlParams.token, 
-          pin: pinInput 
-        })
+      const res = await fetch("/api/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "login", id: urlParams.id, token: urlParams.token, pin }),
       });
-      
       const data = await res.json();
-      
-      if (data.success) {
-        setViewState('intro');
-      } else {
-        setLoginError('잘못된 시크릿 PIN 번호입니다.');
-        setPinInput('');
-      }
-    } catch (err) {
-      setLoginError('서버 통신 중 오류가 발생했습니다.');
-    }
-  };
+      if (data.success) { setViewState("intro"); return true; }
+      return false;
+    } catch { return false; }
+  }, [urlParams]);
 
   // --- [연출] 인트로 시퀀스 ---
   useEffect(() => {
-    // 💡 [수정 6] 타이머 클린업 적용
-    if (viewState === 'intro') {
+    if (viewState === "intro") {
       const t1 = setTimeout(() => setIntroOpacity(100), 100);
       const t2 = setTimeout(() => setIntroOpacity(0), 3500);
-      const t3 = setTimeout(() => setViewState('main'), 4500);
+      const t3 = setTimeout(() => setViewState("main"), 4500);
       return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
     }
   }, [viewState]);
@@ -171,52 +135,36 @@ export default function AlbumPage() {
     if (!audioCtxRef.current && audioRef.current) {
       const AudioContext = window.AudioContext || window.webkitAudioContext;
       audioCtxRef.current = new AudioContext();
-      
       gainNodeRef.current = audioCtxRef.current.createGain();
-      
       sourceRef.current = audioCtxRef.current.createMediaElementSource(audioRef.current);
       sourceRef.current.connect(gainNodeRef.current);
       gainNodeRef.current.connect(audioCtxRef.current.destination);
     }
-    if (audioCtxRef.current?.state === 'suspended') {
-      await audioCtxRef.current.resume();
-    }
+    if (audioCtxRef.current?.state === "suspended") await audioCtxRef.current.resume();
   };
 
   // 오디오 볼륨(gain) 페이드 컨트롤
   const doFade = (targetVolume, durationMs = 150) => {
-    return new Promise(resolve => {
+    return new Promise((resolve) => {
       if (!audioRef.current) return resolve();
-      
-      // 기존 requestAnimationFrame 기반 애니메이션 중단 (하위 호환성 유지)
       if (fadeAnimationRef.current) cancelAnimationFrame(fadeAnimationRef.current);
-      if (activeFadeResolve.current) activeFadeResolve.current(); 
-
+      if (activeFadeResolve.current) activeFadeResolve.current();
       activeFadeResolve.current = resolve;
-      
+
       const isUsingGain = !!gainNodeRef.current && !!audioCtxRef.current;
-      
       if (isUsingGain) {
         try {
           const { currentTime } = audioCtxRef.current;
-          // 현재 예약된 모든 볼륨 변경 취소
           gainNodeRef.current.gain.cancelScheduledValues(currentTime);
-          // 현재 볼륨 지점에서 시작하여 targetVolume까지 선형적으로 변화
           gainNodeRef.current.gain.setValueAtTime(gainNodeRef.current.gain.value, currentTime);
-          gainNodeRef.current.gain.linearRampToValueAtTime(targetVolume, currentTime + (durationMs / 1000));
-          
-          // 스케줄링이 끝나는 시점에 맞추어 Promise 해결
-          setTimeout(() => {
-            activeFadeResolve.current = null;
-            resolve();
-          }, durationMs);
+          gainNodeRef.current.gain.linearRampToValueAtTime(targetVolume, currentTime + durationMs / 1000);
+          setTimeout(() => { activeFadeResolve.current = null; resolve(); }, durationMs);
         } catch (e) {
           console.error("Fade scheduling error:", e);
           gainNodeRef.current.gain.value = targetVolume;
           resolve();
         }
       } else {
-        // GainNode가 없는 경우 직접 조절 (애니메이션 생략하여 동기화 우선)
         audioRef.current.volume = targetVolume;
         activeFadeResolve.current = null;
         resolve();
@@ -224,9 +172,7 @@ export default function AlbumPage() {
     });
   };
 
-  // 비하인드 탭의 비디오/데모 오디오 재생 직전에 호출되는 얇은 헬퍼.
-  // 기존 doFade/audioRef/setIsPlaying만 소비하며 오디오 내부 로직은 변경하지 않음.
-  // 페이드아웃이 완전히 끝난 뒤에야 resolve되므로 호출부에서 `await` 후 비디오 재생.
+  // 비하인드 미디어 재생 직전 메인 오디오 페이드아웃
   const pauseAudioWithFade = useCallback(async () => {
     if (!isPlayingRef.current) return;
     await doFade(0, 150);
@@ -234,26 +180,20 @@ export default function AlbumPage() {
     setIsPlaying(false);
   }, []);
 
-  // 비하인드 탭의 현재 활성 미디어를 즉시 정지하는 함수를 보관.
-  // BehindTab 내 AudioCard/VideoPlayer가 마운트될 때 자기 자신의 stop 함수를 등록한다.
+  // 비하인드 활성 미디어 즉시 정지 함수 보관
   const stopBehindMediaRef = useRef(null);
-  const registerStopBehindMedia = useCallback((fn) => {
-    stopBehindMediaRef.current = fn;
-  }, []);
+  const registerStopBehindMedia = useCallback((fn) => { stopBehindMediaRef.current = fn; }, []);
 
-  // 메인 오디오가 재생되는 모든 경로(togglePlay, seek 후 재개, 트랙 변경 등)에서
-  // 'play' 이벤트가 발화 → 비하인드 활성 미디어를 즉시 pause해 동시 재생 방지.
-  // ⚠ <audio> 엘리먼트는 viewState === 'main' 진입 후에야 마운트되므로
-  //    deps에 viewState/album을 넣어 audioRef.current가 채워진 시점에 재실행되도록 함.
+  // 메인 오디오 'play' 시 비하인드 미디어 즉시 정지 (동시 재생 방지)
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
     const handler = () => stopBehindMediaRef.current?.();
-    audio.addEventListener('play', handler);
-    return () => audio.removeEventListener('play', handler);
+    audio.addEventListener("play", handler);
+    return () => audio.removeEventListener("play", handler);
   }, [viewState, album]);
 
-  // 💡 가사 클릭 시 팝 노이즈 차단 (Seamless Seek + 동기화)
+  // 가사 클릭 시 팝 노이즈 차단 (Seamless Seek + 동기화)
   const executeSeek = async (newTime, forcePlay = false) => {
     if (!audioRef.current || isSeekingRef.current) return;
     if (audioRef.current.readyState === 0) return;
@@ -261,79 +201,65 @@ export default function AlbumPage() {
     isSeekingRef.current = true;
     const wasPlaying = isPlayingRef.current;
     const willPlay = wasPlaying || forcePlay;
-    
-    try {
-      await ensureAudioContext(); 
 
+    try {
+      await ensureAudioContext();
       if (wasPlaying) {
-        // 부드러운 페이드 아웃 후 정지
         await doFade(0, 150);
       } else if (gainNodeRef.current && audioCtxRef.current) {
-        // 이미 멈춰있더라도 혹시 모를 출력을 대비해 gain을 0으로 확정
         const { currentTime: now } = audioCtxRef.current;
         gainNodeRef.current.gain.cancelScheduledValues(now);
         gainNodeRef.current.gain.setValueAtTime(0, now);
       }
 
-      // 🚨 iOS에서 seek 시 발생하는 미세한 팝음을 막기 위해 일시 정지 필수 (버퍼 비우기)
       audioRef.current.pause();
 
-      const seekPromise = new Promise(resolve => {
-        const onSeeked = () => { audioRef.current.removeEventListener('seeked', onSeeked); resolve(); };
-        audioRef.current.addEventListener('seeked', onSeeked);
-        // 브라우저가 로딩을 완료할 때까지 충분히 기다림 (기존 300ms -> 3000ms)
-        setTimeout(() => { audioRef.current.removeEventListener('seeked', onSeeked); resolve(); }, 3000);
+      const seekPromise = new Promise((resolve) => {
+        const onSeeked = () => { audioRef.current.removeEventListener("seeked", onSeeked); resolve(); };
+        audioRef.current.addEventListener("seeked", onSeeked);
+        setTimeout(() => { audioRef.current.removeEventListener("seeked", onSeeked); resolve(); }, 3000);
       });
 
       audioRef.current.currentTime = newTime;
       setCurrentTime(newTime);
       setIsDragging(false);
-
       await seekPromise;
 
-      // 💡 [추가] 데이터가 재생 가능할 때까지 명시적으로 확인 (HAVE_FUTURE_DATA 이상)
       if (audioRef.current.readyState < 3) {
-        await new Promise(resolve => {
-          const onCanPlay = () => { audioRef.current.removeEventListener('canplay', onCanPlay); resolve(); };
-          audioRef.current.addEventListener('canplay', onCanPlay);
-          setTimeout(() => { audioRef.current.removeEventListener('canplay', onCanPlay); resolve(); }, 2000);
+        await new Promise((resolve) => {
+          const onCanPlay = () => { audioRef.current.removeEventListener("canplay", onCanPlay); resolve(); };
+          audioRef.current.addEventListener("canplay", onCanPlay);
+          setTimeout(() => { audioRef.current.removeEventListener("canplay", onCanPlay); resolve(); }, 2000);
         });
       }
 
       if (willPlay) {
         if (gainNodeRef.current) gainNodeRef.current.gain.value = 0;
-        // 🚨 OS 레벨 muted: GainNode를 우회하는 source buffer 출력도 차단
         audioRef.current.muted = true;
 
         if (audioRef.current.paused) {
-          const playPromise = new Promise(resolve => {
-            const onPlaying = () => { audioRef.current.removeEventListener('playing', onPlaying); resolve(); };
-            audioRef.current.addEventListener('playing', onPlaying);
-            // 재생 시작 이벤트도 충분히 기다림
-            setTimeout(() => { audioRef.current.removeEventListener('playing', onPlaying); resolve(); }, 3000);
+          const playPromise = new Promise((resolve) => {
+            const onPlaying = () => { audioRef.current.removeEventListener("playing", onPlaying); resolve(); };
+            audioRef.current.addEventListener("playing", onPlaying);
+            setTimeout(() => { audioRef.current.removeEventListener("playing", onPlaying); resolve(); }, 3000);
           });
           await audioRef.current.play();
           setIsPlaying(true);
           await playPromise;
         }
 
-        // 🚨 0~65초 구간은 WebKit 프리버퍼에 stale PCM이 남아 graph로 흘러나오므로
-        //    muted+gain=0 상태로 충분히 흘려보내 buffer를 자연 drain (1.5초)
         const silenceDuration = newTime < 65 ? 1500 : 550;
-        await new Promise(resolve => setTimeout(resolve, silenceDuration));
-        // gain이 0인 상태에서 unmute → 팝 없이 해제, 이후 GainNode가 페이드인 담당
+        await new Promise((resolve) => setTimeout(resolve, silenceDuration));
         audioRef.current.muted = false;
         await doFade(MAX_VOL, 400);
       } else {
         audioRef.current.pause();
         setIsPlaying(false);
-        // 정지 시 iOS 오디오 세션 반환은 의도적으로 생략 — suspend가 키보드 시스템 사운드 음량 비정상을 유발
       }
     } catch (e) {
       console.error("Seek error:", e);
       setIsPlaying(false);
     } finally {
-      // 에러 발생 시에도 muted가 남아 영구 묵음이 되는 것을 방지
       if (audioRef.current) audioRef.current.muted = false;
       isSeekingRef.current = false;
     }
@@ -348,31 +274,25 @@ export default function AlbumPage() {
         await doFade(0, 150);
         audioRef.current.pause();
         setIsPlaying(false);
-        // 정지 시 AudioContext.suspend()는 의도적으로 호출 안 함 — 키보드 시스템 사운드 음량을
-        // 비정상으로 만드는 부작용이 있음. visibilitychange 핸들러가 필요 시 resume 처리.
       } else {
         await ensureAudioContext();
         if (gainNodeRef.current) gainNodeRef.current.gain.value = 0;
         else audioRef.current.volume = 0;
-        // 🚨 Safari GainNode 우회 대비 OS 레벨 muted 이중 차단
         audioRef.current.muted = true;
 
-        const playPromise = new Promise(resolve => {
-          const onPlaying = () => { audioRef.current.removeEventListener('playing', onPlaying); resolve(); };
-          audioRef.current.addEventListener('playing', onPlaying);
-          // 재생 안정성을 위해 대기 시간 증가
-          setTimeout(() => { audioRef.current.removeEventListener('playing', onPlaying); resolve(); }, 3000);
+        const playPromise = new Promise((resolve) => {
+          const onPlaying = () => { audioRef.current.removeEventListener("playing", onPlaying); resolve(); };
+          audioRef.current.addEventListener("playing", onPlaying);
+          setTimeout(() => { audioRef.current.removeEventListener("playing", onPlaying); resolve(); }, 3000);
         });
 
         await audioRef.current.play();
         setIsPlaying(true);
-
         await playPromise;
-        // 🚨 일시정지 후 재생 시점의 currentTime이 0~65초 구간이면 source buffer drain을 위해
-        //    1500ms 묵음 유지 (executeSeek와 동일 정책). 1:05 이후는 종전 550ms.
+
         const resumePos = audioRef.current.currentTime;
         const silenceDuration = resumePos < 65 ? 1500 : 550;
-        await new Promise(resolve => setTimeout(resolve, silenceDuration));
+        await new Promise((resolve) => setTimeout(resolve, silenceDuration));
         audioRef.current.muted = false;
         await doFade(MAX_VOL, 400);
       }
@@ -389,9 +309,8 @@ export default function AlbumPage() {
     if (isSeekingRef.current || !album) return;
     const trackCount = album.트랙리스트.length;
 
-    // 트랙이 1개뿐인 앨범: prev/next 버튼은 no-op, 자연 종료 시에만 페이드아웃 후 정지.
     if (trackCount <= 1) {
-      if (direction === 'next' && audioRef.current?.ended && isPlayingRef.current) {
+      if (direction === "next" && audioRef.current?.ended && isPlayingRef.current) {
         await doFade(0, 150);
         audioRef.current.pause();
         setIsPlaying(false);
@@ -402,23 +321,18 @@ export default function AlbumPage() {
     isSeekingRef.current = true;
     try {
       const wasPlaying = isPlayingRef.current;
-      if (wasPlaying) {
-        await doFade(0, 150);
-        audioRef.current.pause();
-        // 🚨 오토플레이 유지를 위해 setIsPlaying(false)와 context suspend는 생략함
-      }
-      if (direction === 'next') setCurrentTrack(prev => (prev < trackCount ? prev + 1 : 1));
-      else setCurrentTrack(prev => (prev > 1 ? prev - 1 : trackCount));
+      if (wasPlaying) { await doFade(0, 150); audioRef.current.pause(); }
+      if (direction === "next") setCurrentTrack((prev) => (prev < trackCount ? prev + 1 : 1));
+      else setCurrentTrack((prev) => (prev > 1 ? prev - 1 : trackCount));
     } finally {
       isSeekingRef.current = false;
     }
   };
 
-  // 🚨 [Media Session] 잠금화면 / 제어센터 / 블루투스 컨트롤러에 곡 정보 + 재생 컨트롤 노출.
-  //    PWA 설치 시 백그라운드 재생 가능 (iOS 16.4+). 일반 Safari 탭은 OS 제약으로 백그라운드 정지.
+  // [Media Session]
   useEffect(() => {
-    if (typeof navigator === 'undefined' || !navigator.mediaSession) return;
-    if (viewState !== 'main' || !album) return;
+    if (typeof navigator === "undefined" || !navigator.mediaSession) return;
+    if (viewState !== "main" || !album) return;
     const track = album.트랙리스트[currentTrack - 1];
     if (!track) return;
     try {
@@ -426,54 +340,45 @@ export default function AlbumPage() {
         title: track.제목,
         artist: album.아티스트,
         album: album.앨범명,
-        artwork: [
-          { src: track.앨범아트, sizes: '512x512', type: 'image/jpeg' },
-        ],
+        artwork: [{ src: track.앨범아트, sizes: "512x512", type: "image/jpeg" }],
       });
-      navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
-      navigator.mediaSession.setActionHandler('play', () => { togglePlay(); });
-      navigator.mediaSession.setActionHandler('pause', () => { togglePlay(); });
-      navigator.mediaSession.setActionHandler('previoustrack', () => { changeTrack('prev'); });
-      navigator.mediaSession.setActionHandler('nexttrack', () => { changeTrack('next'); });
-    } catch (e) {
-      console.error('MediaSession error:', e);
-    }
+      navigator.mediaSession.playbackState = isPlaying ? "playing" : "paused";
+      navigator.mediaSession.setActionHandler("play", () => togglePlay());
+      navigator.mediaSession.setActionHandler("pause", () => togglePlay());
+      navigator.mediaSession.setActionHandler("previoustrack", () => changeTrack("prev"));
+      navigator.mediaSession.setActionHandler("nexttrack", () => changeTrack("next"));
+    } catch (e) { console.error("MediaSession error:", e); }
   }, [currentTrack, isPlaying, viewState, album]);
 
+  // 트랙/뷰 변경 시 로드 + 오토플레이
   useEffect(() => {
-    if (audioRef.current && viewState === 'main') {
+    if (audioRef.current && viewState === "main") {
       audioRef.current.pause();
       audioRef.current.load();
       setCurrentTime(0);
       setActiveLyricIndex(0);
-      // 트랙 변경 시 이전 트랙의 가사 lock 해제
       pendingLyricTargetRef.current = null;
-
-      // 💡 [수정 2] 가사 배열 초기화 (인덱스 오염 방지)
       lyricRefs.current = [];
 
-      // 💡 [수정 3 반영] 최신 상태(isPlayingRef)를 참조하여 자동 재생 판별
       if (isPlayingRef.current) {
         (async () => {
           await ensureAudioContext();
           if (gainNodeRef.current) gainNodeRef.current.gain.value = 0;
           else audioRef.current.volume = 0;
-          // 🚨 Safari GainNode 우회 대비 OS 레벨 muted 이중 차단 (트랙 변경 시 항상 0초 시작)
           audioRef.current.muted = true;
 
-          // 💡 [추가] 파일 로드가 완료될 때까지 대기
           if (audioRef.current.readyState < 3) {
-            await new Promise(resolve => {
-              const onCanPlay = () => { audioRef.current.removeEventListener('canplay', onCanPlay); resolve(); };
-              audioRef.current.addEventListener('canplay', onCanPlay);
-              setTimeout(() => { audioRef.current.removeEventListener('canplay', onCanPlay); resolve(); }, 3000);
+            await new Promise((resolve) => {
+              const onCanPlay = () => { audioRef.current.removeEventListener("canplay", onCanPlay); resolve(); };
+              audioRef.current.addEventListener("canplay", onCanPlay);
+              setTimeout(() => { audioRef.current.removeEventListener("canplay", onCanPlay); resolve(); }, 3000);
             });
           }
 
-          const playEventPromise = new Promise(resolve => {
-            const onPlaying = () => { audioRef.current.removeEventListener('playing', onPlaying); resolve(); };
-            audioRef.current.addEventListener('playing', onPlaying);
-            setTimeout(() => { audioRef.current.removeEventListener('playing', onPlaying); resolve(); }, 3000);
+          const playEventPromise = new Promise((resolve) => {
+            const onPlaying = () => { audioRef.current.removeEventListener("playing", onPlaying); resolve(); };
+            audioRef.current.addEventListener("playing", onPlaying);
+            setTimeout(() => { audioRef.current.removeEventListener("playing", onPlaying); resolve(); }, 3000);
           });
 
           try {
@@ -481,8 +386,7 @@ export default function AlbumPage() {
             if (playRequest !== undefined) {
               await playRequest;
               await playEventPromise;
-              // 🚨 트랙 변경 자동재생은 항상 0초에서 시작 → 0~60초 구간이므로 1500ms 묵음
-              await new Promise(resolve => setTimeout(resolve, 1500));
+              await new Promise((resolve) => setTimeout(resolve, 1500));
               audioRef.current.muted = false;
               await doFade(MAX_VOL, 400);
             }
@@ -494,48 +398,40 @@ export default function AlbumPage() {
         })();
       }
     }
-  }, [currentTrack, viewState]); 
+  }, [currentTrack, viewState]);
 
   // --- [컨트롤 슬라이더 로직] ---
   const handlePointerDown = (e) => {
     e.currentTarget.setPointerCapture(e.pointerId);
-    // 💡 [수정 9] 중복 호출 제거됨 (여기서만 상태 변경)
     setIsDragging(true);
     const rect = progressBarRef.current.getBoundingClientRect();
     const pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
     setCurrentTime(pos * duration);
   };
-
   const handleDrag = (e) => {
     const rect = progressBarRef.current.getBoundingClientRect();
     const pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
     setCurrentTime(pos * duration);
   };
-
   const handlePointerUp = (e) => {
     e.currentTarget.releasePointerCapture(e.pointerId);
     setIsDragging(false);
     if (!duration) return;
     const rect = progressBarRef.current.getBoundingClientRect();
     const pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    const newTime = pos * duration;
-    executeSeek(newTime, false);
+    executeSeek(pos * duration, false);
   };
 
   const seekTo = (time) => {
-    if (isSeekingRef.current) return; // 진행 중인 seek가 있으면 무시
-    // 🚨 가사 클릭으로 1:05 이전 위치로 이동 시, 1500ms silence 동안 음원이 진행되어
-    //    가사 시작점을 놓치는 문제를 보정. 클릭 시점에만 2초 일찍 seek하여
-    //    silence 끝나는 순간 가사 시작점에 도달하도록 함. (가사 데이터 자체는 원본 유지)
+    if (isSeekingRef.current) return;
     const adjusted = time < 65 ? Math.max(0, time - 2) : time;
     if (time !== adjusted) {
-      // 보정 seek 케이스: 오디오가 도달할 때까지 active 가사를 클릭된 가사로 잠가둠
       const lyrics = album.트랙리스트[currentTrack - 1].가사데이터;
-      const targetIndex = lyrics.findIndex(l => l.시간 === time);
+      const targetIndex = lyrics.findIndex((l) => l.시간 === time);
       if (targetIndex !== -1) {
         pendingLyricTargetRef.current = { index: targetIndex, time };
         setActiveLyricIndex(targetIndex);
-        setCurrentTime(adjusted); // tracking effect의 lock 판정에 stale currentTime 사용 방지
+        setCurrentTime(adjusted);
       }
     } else {
       pendingLyricTargetRef.current = null;
@@ -543,18 +439,9 @@ export default function AlbumPage() {
     executeSeek(adjusted, true);
   };
 
-  const formatTime = (time) => {
-    if (!time || isNaN(time)) return "0:00";
-    const min = Math.floor(time / 60);
-    const sec = Math.floor(time % 60);
-    return min + ":" + (sec < 10 ? "0" + sec : sec);
-  };
-
   // --- [가사 트래킹 로직] ---
   useEffect(() => {
-    if (!isDragging && viewState === 'main') {
-      // 🚨 가사 클릭 보정 seek 진행 중: 오디오가 클릭된 가사 시간에 도달할 때까지
-      //    active 가사를 클릭된 가사로 고정. 도달 후 lock 해제하고 정상 추적 재개.
+    if (!isDragging && viewState === "main") {
       const pending = pendingLyricTargetRef.current;
       if (pending !== null) {
         if (currentTime < pending.time) {
@@ -565,308 +452,177 @@ export default function AlbumPage() {
       }
 
       const lyrics = album?.트랙리스트[currentTrack - 1]?.가사데이터 || [];
-
-      // 💡 [수정 5] findLastIndex 호환성 버그 해결 (역순 for문 교체)
       let index = -1;
       for (let i = lyrics.length - 1; i >= 0; i--) {
-        if (lyrics[i].시간 <= currentTime) {
-          index = i;
-          break;
-        }
+        if (lyrics[i].시간 <= currentTime) { index = i; break; }
       }
-
-      if (index !== -1 && index !== activeLyricIndex) {
-        setActiveLyricIndex(index);
-      }
+      if (index !== -1 && index !== activeLyricIndex) setActiveLyricIndex(index);
     }
-    // 💡 [수정 7] deps 경고 해결
   }, [currentTime, currentTrack, isDragging, viewState, activeLyricIndex, album]);
 
+  // 가사 자동 스크롤 — 컨테이너 scrollTo (페이지 전체 점프 방지)
   useEffect(() => {
-    if (isAutoScroll && lyricRefs.current[activeLyricIndex] && !isDragging && viewState === 'main' && showLyrics) {
-      lyricRefs.current[activeLyricIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (isAutoScroll && !isDragging && viewState === "main" && showLyrics) {
+      const c = lyricContainerRef.current;
+      const el = lyricRefs.current[activeLyricIndex];
+      if (c && el) c.scrollTo({ top: el.offsetTop - c.clientHeight / 2 + el.clientHeight / 2, behavior: "smooth" });
     }
   }, [activeLyricIndex, isAutoScroll, isDragging, viewState, showLyrics]);
 
-  // 앨범별 브라우저 탭 제목 동기화 (layout.js metadata.title은 generic 유지).
-  useEffect(() => {
-    if (album) document.title = album.제목;
-  }, [album]);
+  // 브라우저 탭 제목
+  useEffect(() => { if (album) document.title = album.제목; }, [album]);
 
-  // --- 화면 렌더링 ---
-  // 기본 배경 (album 로드 전 또는 invalid 화면용)
-  const 기본배경 = 'radial-gradient(circle at center, #FFFFFF 0%, #DDE1E5 100%)';
-  const 활성배경 = album?.테마.배경그라데이션 || 기본배경;
+  // ─────────────────────────────────────────────────────────
+  // 렌더
+  // ─────────────────────────────────────────────────────────
+  if (viewState === "loading") return <div ref={rootRef} className="app-root" />;
 
-  if (viewState === 'loading') return <div className="min-h-screen" style={{ background: 기본배경 }} />;
-
-  if (viewState === 'invalid') return (
-    <div className="min-h-screen flex items-center justify-center p-6 text-center text-gray-900 font-sans" style={{ background: 기본배경 }}>
-      <div className="animate-fade-in">
-        <h1 className="text-primary font-bold mb-4 tracking-widest uppercase">Invalid Access</h1>
-        <p className="text-gray-600 text-sm leading-relaxed">비정상적인 접근입니다.<br/>앨범 전용 링크를 통해 접속해 주세요.</p>
+  if (viewState === "invalid") {
+    return (
+      <div ref={rootRef} className="app-root">
+        <div className="overlay fade-in">
+          <div className="kicker" style={{ marginBottom: 14 }}>Invalid Access</div>
+          <p className="kr" style={{ color: "var(--muted)", fontSize: 14, lineHeight: 1.7 }}>
+            비정상적인 접근입니다.<br />앨범 전용 링크를 통해 접속해 주세요.
+          </p>
+        </div>
       </div>
-    </div>
-  );
+    );
+  }
 
-  // 🚨 wrapper의 inline style에 CSS variable(--primary 등)을 매번 주입하면 setCurrentTime
-  //    매 250ms re-render마다 React가 inline style을 reconcile → iOS Safari가 wrapper 자손
-  //    전체 cascade를 재평가 → backdrop-blur 외부의 var(--color-primary) 참조 element들의
-  //    paint 갱신 → backdrop-filter가 이를 감지해 매 frame 재합성 → 사각형 점멸 발생.
-  //    1번 앨범의 색상이 globals.css 기본값(#E63946)과 동일하므로 inline override 자체가 불필요.
-  //    추후 다른 앨범에 다른 색상이 필요하면 그때 별도 컴포넌트 분기로 처리.
+  const track = album?.트랙리스트[currentTrack - 1];
+  const lyrics = track?.가사데이터 || [];
+  const hasRealLyrics = lyrics.length > 1 || (lyrics[0] && lyrics[0].내용 !== "준비 중...");
 
   return (
-    <div ref={bgRef} className="min-h-screen text-gray-900 font-sans overflow-x-hidden relative" style={{ background: 활성배경 }}>
-
+    <div ref={rootRef} className="app-root" data-mode={theme.mode} data-treatment={theme.treatment}>
       <audio
         ref={audioRef}
-        src={album?.트랙리스트[currentTrack - 1]?.음원}
+        src={track?.음원}
         crossOrigin="anonymous"
         onLoadedMetadata={(e) => setDuration(e.target.duration)}
         onTimeUpdate={() => !isDragging && !isSeekingRef.current && setCurrentTime(audioRef.current.currentTime)}
-        onEnded={() => changeTrack('next')}
+        onEnded={() => changeTrack("next")}
         preload="auto"
         playsInline
       />
 
-      {/* 1. 로그인 화면 */}
-      {viewState === 'login' && album && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center z-50 px-4">
-          <div className="max-w-sm w-full space-y-10 text-center animate-fade-in-up">
-            <div className="flex flex-col items-center space-y-3">
-              {album.로고 && (
-                <img
-                  src={album.로고}
-                  alt={album.제목}
-                  className="w-24 h-24 object-contain drop-shadow-sm"
-                />
-              )}
-              <h1 className="text-xl font-bold tracking-[0.1em] text-primary leading-tight">
-                {album.제목}
-              </h1>
-            </div>
-            <div className="space-y-2">
-              <p className="text-gray-500 text-xs tracking-widest uppercase font-medium">Digital Experience</p>
-              <p className="text-primary/60 text-[10px] tracking-widest font-mono uppercase">Buyer No. {buyerInfo?.number}</p>
-            </div>
-            <form onSubmit={handleLogin} className="space-y-8 pt-4">
-              <input
-                type="password"
-                inputMode="numeric"
-                maxLength={6}
-                value={pinInput}
-                onChange={(e) => setPinInput(e.target.value.replace(/[^0-9]/g, ''))}
-                placeholder="••••••"
-                className="w-full bg-transparent border-b-2 border-gray-400 text-gray-900 text-center px-4 py-4 focus:outline-none focus:border-primary transition-all tracking-[0.8em] text-3xl font-light placeholder-gray-300"
-              />
-              {loginError && <p className="text-primary text-[10px] tracking-wider font-bold">{loginError}</p>}
-              <button type="submit" className="w-full bg-primary text-white font-bold py-4 rounded-xl active:scale-95 transition-all text-sm tracking-widest shadow-lg shadow-primary/30 hover:bg-primary-hover">
-                ACCESS NOW
-              </button>
-            </form>
-          </div>
-        </div>
+      {viewState === "login" && album && (
+        <LoginScreen logoSrc={album.로고} albumTitle={album.제목} buyerNo={buyerInfo?.number} onVerify={handleVerify} />
       )}
 
-      {/* 2. 인트로 연출 */}
-      {viewState === 'intro' && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center z-50 px-6 text-center transition-opacity duration-1000" style={{ opacity: introOpacity / 100 }}>
-          <p className="text-gray-500 text-xs tracking-[0.4em] mb-6 uppercase font-medium">Welcome</p>
-          <h1 className="text-2xl font-light leading-relaxed text-gray-800">
-            당신은 <span className="text-primary font-bold underline underline-offset-8 decoration-1">{buyerInfo?.number}번째</span><br/>
-            앨범 구매자이십니다.
-          </h1>
-        </div>
+      {viewState === "intro" && (
+        <IntroScreen buyerNo={buyerInfo?.number} opacity={introOpacity / 100} />
       )}
 
-      {/* 3. 메인 플레이어 */}
-      {viewState === 'main' && album && (
-        // 추후 album.레이아웃 값에 따라 다른 variant 컴포넌트로 분기할 수 있도록 구조 유지.
-        <div className="animate-fade-in pb-56">
+      {viewState === "main" && album && (
+        <>
+          <nav className="tabs">
+            <div className="tabs-inner">
+              <button className={"tab" + (currentTab === "메인" ? " active" : "")} onClick={() => setCurrentTab("메인")}>Main</button>
+              <button className={"tab" + (currentTab === "비하인드" ? " active" : "")} onClick={() => setCurrentTab("비하인드")}>Behind</button>
+            </div>
+          </nav>
 
-          <div className="sticky top-0 z-40 bg-white/70 backdrop-blur-xl border-b border-white/50 flex justify-center space-x-12 p-5 shadow-sm">
-            <button onClick={() => setCurrentTab('메인')} className={`font-bold transition-colors ${currentTab === '메인' ? 'text-primary border-b-2 border-primary pb-1' : 'text-gray-500 hover:text-gray-800'}`}>Main</button>
-            <button onClick={() => setCurrentTab('비하인드')} className={`font-bold transition-colors ${currentTab === '비하인드' ? 'text-primary border-b-2 border-primary pb-1' : 'text-gray-500 hover:text-gray-800'}`}>Behind</button>
-          </div>
+          {currentTab === "메인" && (
+            <div className="wrap">
+              <header className="album-head fade-up">
+                <div className="kicker" style={{ marginBottom: 12 }}>{theme.kicker}</div>
+                <h1 className="album-title kr">{album.제목}</h1>
+                <div className="album-sub">
+                  <span className="name">{album.아티스트}</span>
+                  <span className="sep" />
+                  <span className="label-mono">{album.발매}</span>
+                </div>
+              </header>
 
-          {currentTab === '메인' && (
-            <div className="p-4 max-w-xl mx-auto space-y-6 mt-4">
-
-              <div className="bg-primary/10 border border-primary/20 text-primary text-xs font-bold text-center py-2.5 rounded-full tracking-widest shadow-sm">
-                NO.{buyerInfo?.number} 구매자님을 위한 {album.배지텍스트}
+              <div style={{ padding: "16px 24px 0" }} className="fade-up d1">
+                <span className="chip"><span className="dot" />No.{buyerInfo?.number} Exclusive</span>
               </div>
 
-              <div className="bg-white/40 backdrop-blur-md rounded-3xl border border-white/60 overflow-hidden shadow-lg">
-                <div onClick={() => setIsListOpen(!isListOpen)} className="p-6 flex justify-between items-center cursor-pointer active:bg-white/50 transition-colors">
-                  <span className="font-bold text-gray-800 text-sm tracking-widest uppercase">Tracklist</span>
-                  <span className="text-gray-500 text-xs">{isListOpen ? '▲' : '▼'}</span>
+              <div className="hero fade-up d2">
+                {theme.treatment === "earthen" && (<><span className="corner tl" /><span className="corner br" /></>)}
+                <div className={"hero-face" + (showLyrics ? " hide" : "")}>
+                  <img className="hero-art" src={track.앨범아트} alt="cover" />
+                  {theme.treatment === "analog" && <span className="filmstamp">&apos;25 8 12</span>}
                 </div>
-                <div className={`transition-all duration-500 ease-in-out overflow-hidden ${isListOpen ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0'}`}>
-                  <div className="p-5 pt-0 space-y-3">
-                    {album.트랙리스트.map((t) => {
-                      const 단일트랙 = album.트랙리스트.length <= 1;
-                      const isActive = currentTrack === t.번호;
-                      return (
-                        <button
-                          key={t.번호}
-                          onClick={() => {
-                            if (단일트랙) return;
-                            setCurrentTrack(t.번호);
-                            setIsListOpen(false);
-                          }}
-                          disabled={단일트랙}
-                          className={`w-full text-left p-4 rounded-2xl transition-all font-medium ${
-                            isActive
-                              ? 'bg-primary text-white shadow-md shadow-primary/20'
-                              : 'bg-white/50 text-gray-700 hover:bg-white/80'
-                          } ${단일트랙 ? 'cursor-default' : ''}`}
-                        >
-                          {String(t.번호).padStart(2, '0')}. {t.제목}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-
-              {/* 앨범아트 ↔ 가사 크로스페이드 트랜지션 영역 */}
-              <div className="bg-white/40 backdrop-blur-md rounded-3xl border border-white/60 relative min-h-[480px] shadow-lg overflow-hidden">
-                
-                {/* --- 앨범아트 모드 --- */}
-                <div className={`absolute inset-0 p-8 pb-16 flex items-center justify-center transition-all duration-700 ease-in-out ${showLyrics ? 'opacity-0 scale-95 pointer-events-none' : 'opacity-100 scale-100'}`}>
-                   <div className="w-full max-w-[280px] aspect-square bg-gray-200 rounded-[2rem] shadow-2xl border-4 border-white/80 overflow-hidden relative flex items-center justify-center">
-                      <img src={album.트랙리스트[currentTrack - 1].앨범아트} alt="Album Art" className="w-full h-full object-cover" />
-                   </div>
-                </div>
-
-                {/* --- 가사 모드 --- */}
-                <div className={`absolute inset-0 p-8 flex flex-col pb-6 transition-all duration-700 ease-in-out ${showLyrics ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8 pointer-events-none'}`}>
-                  <div className="w-full flex justify-between items-center mb-6 shrink-0">
-                    <h1 className="text-xl font-bold text-primary tracking-wider drop-shadow-sm truncate pr-4">
-                      {album.트랙리스트[currentTrack - 1].제목}
-                    </h1>
-                    <button onClick={() => setIsAutoScroll(!isAutoScroll)} className={`text-[8px] px-3 py-1.5 rounded-full border tracking-widest transition-all shrink-0 ${isAutoScroll ? 'bg-primary text-white border-primary font-bold shadow-sm' : 'text-gray-500 border-gray-300 bg-white/50'}`}>
-                      AUTO
-                    </button>
-                  </div>
-
-                  <div ref={lyricContainerRef} className="w-full flex-grow overflow-y-auto overflow-x-hidden space-y-8 px-2 scrollbar-hide py-16">
-                    {album.트랙리스트[currentTrack - 1].가사데이터.map((lyric, index) => (
-                      <div 
-                        key={index} 
-                        ref={el => lyricRefs.current[index] = el} 
-                        onClick={() => seekTo(lyric.시간)} 
-                        className={`transition-all duration-500 ease-out transform-gpu text-center py-2 cursor-pointer break-keep whitespace-pre-wrap leading-relaxed text-lg font-bold origin-center ${
-                          !isAutoScroll 
-                            ? (activeLyricIndex === index ? 'text-[#1A1A1A] opacity-100' : 'text-gray-500 opacity-100 hover:text-gray-800')
-                            : (activeLyricIndex === index ? 'text-[#1A1A1A] scale-[1.25] opacity-100 drop-shadow-sm' : 'text-gray-400 opacity-40 scale-100')
-                        }`}
-                        style={{ willChange: 'transform, opacity, color' }}
-                      >
-                        {lyric.내용}
+                {showLyrics && (
+                  hasRealLyrics ? (
+                    <div className="hero-face lyrics-face">
+                      <div className="lyrics-head">
+                        <h3 className="label-mono" style={{ color: "var(--accent)" }}>Lyrics</h3>
+                        <button className={"autoscroll-btn" + (isAutoScroll ? " on" : "")} onClick={() => setIsAutoScroll(!isAutoScroll)}>AUTO</button>
                       </div>
-                    ))}
-                  </div>
-                </div>
-
+                      <div className="lyric-scroll" ref={lyricContainerRef}>
+                        {lyrics.map((l, i) => (
+                          <div
+                            key={i}
+                            ref={(el) => (lyricRefs.current[i] = el)}
+                            className={"lyric kr" + (i === activeLyricIndex ? " active" : i < activeLyricIndex ? " passed" : "")}
+                            onClick={() => seekTo(l.시간)}
+                          >
+                            {l.내용}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="hero-face lyrics-face">
+                      <div className="lyrics-empty">
+                        <span className="kicker">Coming Soon</span>
+                        <p className="kr" style={{ color: "var(--muted)", fontSize: 15, fontWeight: 600 }}>가사 준비 중입니다</p>
+                      </div>
+                    </div>
+                  )
+                )}
               </div>
+
+              <div className="face-toggle fade-up d3">
+                <button className={!showLyrics ? "active" : ""} onClick={() => setShowLyrics(false)}><Icon.image s={15} />Cover</button>
+                <button className={showLyrics ? "active" : ""} onClick={() => setShowLyrics(true)}><Icon.lyrics s={15} />Lyrics</button>
+              </div>
+
+              {album.노트 && <p className="album-note fade-up d4">{album.노트}</p>}
             </div>
           )}
 
-          {currentTab === '비하인드' && (
+          {currentTab === "비하인드" && (
             album.비하인드 ? (
               <BehindTab
                 data={album.비하인드}
                 logoSrc={album.로고}
                 albumTitle={album.제목}
+                logoH={theme.logoH}
                 pauseAudioWithFade={pauseAudioWithFade}
                 registerStopBehindMedia={registerStopBehindMedia}
               />
             ) : (
-              <div className="p-20 text-center animate-pulse">
-                <p className="text-gray-500 text-xs tracking-[0.5em] uppercase font-bold">Loading Archive...</p>
+              <div className="behind" style={{ textAlign: "center", paddingTop: 60 }}>
+                <span className="kicker">Loading Archive…</span>
               </div>
             )
           )}
 
-          {/* 하단 플레이어 (수직 스택 구조) */}
-          <div className={`fixed bottom-0 left-0 right-0 z-50 flex justify-center pointer-events-none transition-transform duration-500 ${isMinimized ? 'translate-y-[calc(100%-60px)]' : 'translate-y-0'}`}>
-            <div className="w-full max-w-md bg-white/70 border-t border-white/80 rounded-t-[2.5rem] shadow-[0_-15px_40px_rgba(0,0,0,0.06)] backdrop-blur-2xl pointer-events-auto flex flex-col px-8 pb-10">
-              
-              <div onClick={() => setIsMinimized(!isMinimized)} className="w-full h-10 flex items-center justify-center cursor-pointer active:opacity-40">
-                <div className="w-10 h-1.5 bg-gray-300 rounded-full" />
-              </div>
-              
-              {/* 🚨 하단 플레이어 영역은 backdrop-blur-2xl 위에서 CSS variable 기반 색상(text-primary 등)
-                     이 매 paint마다 var(--color-primary)를 resolve하며 iOS Safari가 점멸을 유발했음.
-                     이 영역에 한해 색상을 hardcoded hex(#E63946/#D62828)로 사용하여 점멸 차단.
-                     앨범별 색상 분리는 추후 컴포넌트 분기 또는 inline style 패턴으로 보강 가능. */}
-              <div className="space-y-6">
-
-                {/* 1층: 곡 제목 (중앙) */}
-                <div className="text-center px-4">
-                  <div className="text-[#E63946] font-bold text-sm tracking-widest uppercase drop-shadow-sm truncate">
-                    {album.트랙리스트[currentTrack - 1].제목}
-                  </div>
-                </div>
-
-                {/* 2층: 진행 바 (페이더) */}
-                <div className="flex flex-col space-y-3">
-                  <div ref={progressBarRef} onPointerDown={(e) => { handlePointerDown(e); }} onPointerMove={(e) => isDragging && handleDrag(e)} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp} className="h-6 flex items-center cursor-pointer relative touch-none group">
-                    <div className="h-1.5 bg-gray-300 w-full rounded-full shadow-inner"><div className="h-full bg-[#E63946] rounded-full" style={{ width: (duration ? (currentTime / duration * 100) : 0) + '%' }} /></div>
-                    <div className="absolute w-4 h-4 bg-white rounded-full shadow-md border border-gray-200 transition-transform group-active:scale-125" style={{ left: `clamp(0px, calc(${(duration ? (currentTime / duration * 100) : 0)}% - 8px), calc(100% - 16px))` }} />
-                  </div>
-                  <div className="flex justify-between text-[10px] font-mono text-gray-500 font-medium tracking-tighter px-1"><span>{formatTime(currentTime)}</span><span>{formatTime(duration)}</span></div>
-                </div>
-
-                {/* 3층: 컨트롤러 (이전/재생/다음 & 가사 토글) */}
-                <div className="flex items-center justify-center relative pt-2">
-                  <div className="flex items-center space-x-10">
-                    <button onClick={() => changeTrack('prev')} className="text-gray-500 hover:text-gray-800 active:scale-75 transition-all">
-                      <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
-                    </button>
-
-                    <button onClick={togglePlay} className="text-[#E63946] active:scale-90 transition-transform hover:text-[#D62828]">
-                      <span key={isPlaying ? 'pause' : 'play'} className="block leading-none drop-shadow-lg">
-                        {isPlaying ? (
-                          <svg width="52" height="52" viewBox="0 0 24 24" fill="currentColor" style={{ overflow: 'visible' }}><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
-                        ) : (
-                          <svg width="52" height="52" viewBox="0 0 24 24" fill="currentColor" style={{ overflow: 'visible' }}><path d="M8 5v14l11-7z"/></svg>
-                        )}
-                      </span>
-                    </button>
-
-                    <button onClick={() => changeTrack('next')} className="text-gray-500 hover:text-gray-800 active:scale-75 transition-all">
-                      <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M16 6h2v12h-2zm-10.5 0l8.5 6-8.5 6z"/></svg>
-                    </button>
-                  </div>
-
-                  {/* 가사 토글 버튼 */}
-                  <button
-                    onClick={() => setShowLyrics(!showLyrics)}
-                    className={`absolute right-0 p-2 transition-all active:scale-90 ${showLyrics ? 'text-[#E63946] drop-shadow-md' : 'text-gray-400 hover:text-gray-800'}`}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM9.5 13H8c0-1.5 1.5-3 1.5-3V8H7v5h1.5S8.5 14.5 7 14.5V16c2 0 2.5-3 2.5-3zm6 0H14c0-1.5 1.5-3 1.5-3V8h-2v5h1.5s0 1.5-1.5 1.5V16c2 0 2.5-3 2.5-3z"/>
-                    </svg>
-                  </button>
-                </div>
-              </div>
-
-            </div>
-          </div>
-        </div>
+          <PlayerDock
+            title={track.제목}
+            artist={album.아티스트}
+            art={track.앨범아트}
+            isPlaying={isPlaying}
+            currentTime={currentTime}
+            duration={duration}
+            onToggle={togglePlay}
+            onPrev={() => changeTrack("prev")}
+            onNext={() => changeTrack("next")}
+            showLyrics={showLyrics}
+            onToggleLyrics={() => setShowLyrics(!showLyrics)}
+            progressBarRef={progressBarRef}
+            onPointerDown={handlePointerDown}
+            onPointerMove={handleDrag}
+            onPointerUp={handlePointerUp}
+            isDragging={isDragging}
+          />
+        </>
       )}
-      
-      <style jsx global>{`
-        .animate-fade-in-up { animation: fadeInUp 0.8s ease-out forwards; }
-        .animate-fade-in { animation: fadeIn 0.6s ease-out forwards; }
-        @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        .scrollbar-hide::-webkit-scrollbar { display: none; }
-        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
-      `}</style>
     </div>
   );
 }

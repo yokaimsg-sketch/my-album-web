@@ -1,116 +1,60 @@
-'use client';
+"use client";
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from "react";
+import { Icon, fmtTime } from "./icons";
 
-export default function BehindTab({ data, logoSrc, albumTitle, pauseAudioWithFade, registerStopBehindMedia }) {
+// 비하인드 탭 — 디자인은 새 시스템, 미디어 로직(메인오디오 페이드·상호 정지·HLS)은 원본 보존.
+export default function BehindTab({ data, logoSrc, albumTitle, logoH = 30, pauseAudioWithFade, registerStopBehindMedia }) {
   const items = data?.아이템 || [];
-  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [idx, setIdx] = useState(0);
   const thumbRefs = useRef([]);
+  const safe = items.length ? Math.min(idx, items.length - 1) : 0;
 
-  const safeIndex = items.length ? Math.min(selectedIndex, items.length - 1) : 0;
-
-  // 선택된 썸네일이 항상 화면 안에 보이도록 자동 스크롤
+  // 선택 썸네일을 스트립 안에서 가운데로 (페이지 전체 스크롤 유발 방지 위해 컨테이너 scrollTo 사용)
   useEffect(() => {
-    const target = thumbRefs.current[safeIndex];
-    if (target) {
-      target.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    const el = thumbRefs.current[safe];
+    if (el && el.parentElement) {
+      const p = el.parentElement;
+      p.scrollTo({ left: el.offsetLeft - p.clientWidth / 2 + el.clientWidth / 2, behavior: "smooth" });
     }
-  }, [safeIndex]);
+  }, [safe]);
 
-  // 키보드 좌우 화살표로 이전/다음 아이템 전환
+  // 키보드 좌우 이동
   useEffect(() => {
     if (items.length <= 1) return;
     const onKey = (e) => {
       const tag = e.target?.tagName;
-      if (tag === 'VIDEO' || tag === 'AUDIO' || tag === 'INPUT' || tag === 'TEXTAREA') return;
-      if (e.key === 'ArrowLeft') {
-        setSelectedIndex((i) => Math.max(0, i - 1));
-      } else if (e.key === 'ArrowRight') {
-        setSelectedIndex((i) => Math.min(items.length - 1, i + 1));
-      }
+      if (tag === "VIDEO" || tag === "AUDIO" || tag === "INPUT" || tag === "TEXTAREA") return;
+      if (e.key === "ArrowLeft") setIdx((i) => Math.max(0, i - 1));
+      else if (e.key === "ArrowRight") setIdx((i) => Math.min(items.length - 1, i + 1));
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, [items.length]);
 
-  if (items.length === 0) {
-    return (
-      <div className="p-20 text-center">
-        <p className="text-gray-500 text-xs tracking-[0.5em] uppercase font-bold">No Content</p>
-      </div>
-    );
+  if (!items.length) {
+    return <div className="behind" style={{ textAlign: "center", paddingTop: 80 }}><span className="kicker">No Content</span></div>;
   }
-
-  const current = items[safeIndex];
-  const hasPrev = safeIndex > 0;
-  const hasNext = safeIndex < items.length - 1;
+  const cur = items[safe];
 
   return (
-    <div className="p-4 max-w-xl mx-auto space-y-6 mt-4 animate-fade-in">
-
-      <div className="flex flex-col items-center space-y-3 pt-2">
-        {logoSrc && (
-          <img
-            src={logoSrc}
-            alt={albumTitle}
-            className="w-20 h-20 object-contain drop-shadow-sm"
-          />
-        )}
-        <p className="text-[10px] tracking-[0.5em] uppercase text-gray-500 font-bold">
-          Behind The Scenes
-        </p>
+    <div className="behind fade-up">
+      <div className="behind-head">
+        {logoSrc && <img className="lg" src={logoSrc} alt={albumTitle} style={{ height: logoH }} />}
+        <span className="kicker">Behind the Scenes</span>
       </div>
 
-      <div className="flex items-center gap-1">
-        <button
-          onClick={() => setSelectedIndex(safeIndex - 1)}
-          disabled={!hasPrev}
-          aria-label="이전 아이템"
-          className="shrink-0 text-primary disabled:invisible active:scale-90 transition-transform hover:opacity-70"
-        >
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor" style={{ overflow: 'visible' }}>
-            <path d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z" />
-          </svg>
-        </button>
-
-        <div className="flex-1 min-w-0 flex items-center justify-center">
-          <BehindViewer
-            key={safeIndex}
-            item={current}
-            pauseAudioWithFade={pauseAudioWithFade}
-            registerStopBehindMedia={registerStopBehindMedia}
-          />
-        </div>
-
-        <button
-          onClick={() => setSelectedIndex(safeIndex + 1)}
-          disabled={!hasNext}
-          aria-label="다음 아이템"
-          className="shrink-0 text-primary disabled:invisible active:scale-90 transition-transform hover:opacity-70"
-        >
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor" style={{ overflow: 'visible' }}>
-            <path d="M10 6 8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z" />
-          </svg>
-        </button>
+      <div className="behind-stage fade-up d1" style={{ aspectRatio: cur.종류 === "오디오" ? "1 / 1" : "auto" }}>
+        <span className="behind-counter">{String(safe + 1).padStart(2, "0")} / {String(items.length).padStart(2, "0")}</span>
+        <BehindViewer key={safe} item={cur} pauseAudioWithFade={pauseAudioWithFade} registerStopBehindMedia={registerStopBehindMedia} />
+        <button className="behind-nav prev" disabled={safe === 0} onClick={() => setIdx(safe - 1)} aria-label="이전"><Icon.chevL s={22} /></button>
+        <button className="behind-nav next" disabled={safe === items.length - 1} onClick={() => setIdx(safe + 1)} aria-label="다음"><Icon.chevR s={22} /></button>
       </div>
 
-      <div
-        className="flex gap-2 overflow-x-auto scrollbar-hide pb-2 -mx-4 px-4 touch-pan-x"
-        style={{ WebkitOverflowScrolling: 'touch' }}
-      >
+      <div className="thumbs fade-up d2">
         {items.map((it, i) => (
-          <button
-            key={i}
-            ref={(el) => { thumbRefs.current[i] = el; }}
-            onClick={() => setSelectedIndex(i)}
-            className={`shrink-0 w-16 h-16 rounded-xl overflow-hidden border-2 transition-all bg-gray-200 ${
-              i === safeIndex
-                ? 'border-primary shadow-md scale-105'
-                : 'border-white/60 opacity-70 hover:opacity-100'
-            }`}
-            aria-label={`아이템 ${i + 1}`}
-          >
-            <Thumbnail item={it} />
+          <button key={i} ref={(el) => (thumbRefs.current[i] = el)} className={"thumb" + (i === safe ? " active" : "")} onClick={() => setIdx(i)} aria-label={`아이템 ${i + 1}`}>
+            <Thumb item={it} />
           </button>
         ))}
       </div>
@@ -118,83 +62,27 @@ export default function BehindTab({ data, logoSrc, albumTitle, pauseAudioWithFad
   );
 }
 
-function Thumbnail({ item }) {
-  if (item.종류 === '이미지') {
-    return <img src={item.src} alt="" className="w-full h-full object-cover" loading="lazy" />;
-  }
-  if (item.종류 === '오디오') {
-    return (
-      <div className="w-full h-full flex items-center justify-center bg-primary/10 text-primary">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
-        </svg>
-      </div>
-    );
-  }
-  if (item.thumb) {
-    return (
-      <div className="relative w-full h-full">
-        <img src={item.thumb} alt="" className="w-full h-full object-cover" loading="lazy" />
-        <div className="absolute inset-0 flex items-center justify-center bg-black/30 text-white">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M8 5v14l11-7z" />
-          </svg>
-        </div>
-      </div>
-    );
-  }
+function Thumb({ item }) {
+  if (item.종류 === "이미지") return <img src={item.src} alt="" loading="lazy" />;
+  if (item.종류 === "오디오") return <div className="badge" style={{ background: "var(--accent-soft)", color: "var(--accent)" }}><Icon.note s={22} /></div>;
   return (
-    <div className="w-full h-full flex items-center justify-center bg-gray-900 text-white">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M8 5v14l11-7z" />
-      </svg>
-    </div>
+    <>
+      {item.thumb ? <img src={item.thumb} alt="" loading="lazy" /> : <div style={{ width: "100%", height: "100%", background: "#000" }} />}
+      <div className="badge"><Icon.play s={16} /></div>
+      <span className="kind">{item.종류 === "hls" ? "HLS" : "MP4"}</span>
+    </>
   );
 }
 
 function BehindViewer({ item, pauseAudioWithFade, registerStopBehindMedia }) {
-  // 오디오/비디오 카드: 예측 가능한 정사각형 카드(기존 동작 유지).
-  const squareCardClass =
-    "w-full aspect-square bg-white/40 backdrop-blur-md rounded-3xl border border-white/60 overflow-hidden shadow-lg relative";
-
-  if (item.종류 === '이미지') {
-    // 사진은 원본 비율 유지. max-w-full로 가로 폭 초과 방지, max-h-[65vh]로 세로 캡.
-    // 두 제약을 동시에 만족하면서 브라우저가 자연 비율을 유지해 축소함.
-    return (
-      <img
-        src={item.src}
-        alt=""
-        className="block max-w-full max-h-[65vh] rounded-3xl shadow-lg border border-white/60"
-      />
-    );
-  }
-  if (item.종류 === '오디오') {
-    return (
-      <div className={squareCardClass}>
-        <AudioCard
-          src={item.src}
-          title={item.제목}
-          pauseAudioWithFade={pauseAudioWithFade}
-          registerStopBehindMedia={registerStopBehindMedia}
-        />
-      </div>
-    );
-  }
-  if (item.종류 === 'mp4' || item.종류 === 'hls') {
-    // 비디오는 thumb 이미지의 원본 비율로 컨테이너가 결정됨 (VideoPlayer 내부에서 처리).
-    return (
-      <VideoPlayer
-        src={item.src}
-        isHls={item.종류 === 'hls'}
-        poster={item.thumb}
-        pauseAudioWithFade={pauseAudioWithFade}
-        registerStopBehindMedia={registerStopBehindMedia}
-      />
-    );
-  }
+  if (item.종류 === "이미지") return <img className="full" src={item.src} alt="" />;
+  if (item.종류 === "오디오") return <AudioCard src={item.src} title={item.제목} pauseAudioWithFade={pauseAudioWithFade} registerStopBehindMedia={registerStopBehindMedia} />;
+  if (item.종류 === "mp4" || item.종류 === "hls")
+    return <VideoPlayer src={item.src} isHls={item.종류 === "hls"} poster={item.thumb} pauseAudioWithFade={pauseAudioWithFade} registerStopBehindMedia={registerStopBehindMedia} />;
   return null;
 }
 
+// 데모 오디오 카드 — 새 디자인(디스크+진행바), 미디어 로직은 원본 보존.
 function AudioCard({ src, title, pauseAudioWithFade, registerStopBehindMedia }) {
   const audioRef = useRef(null);
   const progressRef = useRef(null);
@@ -203,7 +91,7 @@ function AudioCard({ src, title, pauseAudioWithFade, registerStopBehindMedia }) 
   const [duration, setDuration] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
 
-  // 메인 오디오가 재생을 시작할 때 즉시 정지되도록 stop 함수를 등록.
+  // 메인 오디오가 재생 시작하면 즉시 정지되도록 stop 함수 등록 (원본 동작 유지).
   useEffect(() => {
     if (!registerStopBehindMedia) return;
     registerStopBehindMedia(() => {
@@ -217,41 +105,24 @@ function AudioCard({ src, title, pauseAudioWithFade, registerStopBehindMedia }) 
     const a = audioRef.current;
     if (!a) return;
     if (a.paused) {
-      await pauseAudioWithFade();
-      try {
-        await a.play();
-        setIsPlaying(true);
-      } catch {
-        setIsPlaying(false);
-      }
-    } else {
-      a.pause();
-      setIsPlaying(false);
-    }
+      if (pauseAudioWithFade) await pauseAudioWithFade();
+      try { await a.play(); setIsPlaying(true); } catch { setIsPlaying(false); }
+    } else { a.pause(); setIsPlaying(false); }
   };
 
   const seekFromPointer = (e) => {
-    const bar = progressRef.current;
-    const a = audioRef.current;
+    const bar = progressRef.current, a = audioRef.current;
     if (!bar || !a || !duration) return;
     const rect = bar.getBoundingClientRect();
     const x = Math.min(Math.max(e.clientX - rect.left, 0), rect.width);
-    const newTime = (x / rect.width) * duration;
-    a.currentTime = newTime;
-    setCurrentTime(newTime);
+    a.currentTime = (x / rect.width) * duration;
+    setCurrentTime(a.currentTime);
   };
 
-  const formatTime = (s) => {
-    if (!isFinite(s) || s < 0) return '0:00';
-    const mm = Math.floor(s / 60);
-    const ss = String(Math.floor(s % 60)).padStart(2, '0');
-    return `${mm}:${ss}`;
-  };
-
-  const percent = duration ? (currentTime / duration) * 100 : 0;
+  const pct = duration ? (currentTime / duration) * 100 : 0;
 
   return (
-    <div className="w-full h-full flex flex-col items-center justify-center space-y-6 p-8 text-center">
+    <div className="demo-card">
       <audio
         ref={audioRef}
         src={src}
@@ -262,82 +133,46 @@ function AudioCard({ src, title, pauseAudioWithFade, registerStopBehindMedia }) 
         onPlay={() => setIsPlaying(true)}
         preload="metadata"
       />
-      <p className="text-gray-500 text-[10px] tracking-[0.5em] uppercase font-bold">Demo Track</p>
-      <p className="text-2xl font-bold text-primary tracking-wider">{title || 'Demo'}</p>
-      <button
-        onClick={toggle}
-        className="text-primary active:scale-90 transition-transform hover:opacity-80"
-        aria-label={isPlaying ? '일시정지' : '재생'}
-      >
-        {isPlaying ? (
-          <svg width="72" height="72" viewBox="0 0 24 24" fill="currentColor" style={{ overflow: 'visible' }}>
-            <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
-          </svg>
-        ) : (
-          <svg width="72" height="72" viewBox="0 0 24 24" fill="currentColor" style={{ overflow: 'visible' }}>
-            <path d="M8 5v14l11-7z" />
-          </svg>
-        )}
-      </button>
-
-      <div className="w-full max-w-xs flex flex-col space-y-2">
+      <span className="kicker">Demo Take</span>
+      <div className="demo-disc">
+        <button className="icon-btn" style={{ color: "var(--accent)" }} onClick={toggle} aria-label={isPlaying ? "일시정지" : "재생"}>
+          {isPlaying ? <Icon.pause s={40} /> : <Icon.play s={40} />}
+        </button>
+      </div>
+      <p className="kr" style={{ fontSize: 18, fontWeight: 700, color: "var(--text)" }}>{title || "Demo"}</p>
+      <div style={{ width: "100%", maxWidth: 240 }}>
         <div
           ref={progressRef}
-          onPointerDown={(e) => {
-            e.currentTarget.setPointerCapture(e.pointerId);
-            setIsDragging(true);
-            seekFromPointer(e);
-          }}
-          onPointerMove={(e) => {
-            if (isDragging) seekFromPointer(e);
-          }}
-          onPointerUp={(e) => {
-            e.currentTarget.releasePointerCapture(e.pointerId);
-            setIsDragging(false);
-          }}
+          className="bar"
+          onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); setIsDragging(true); seekFromPointer(e); }}
+          onPointerMove={(e) => { if (isDragging) seekFromPointer(e); }}
+          onPointerUp={(e) => { e.currentTarget.releasePointerCapture(e.pointerId); setIsDragging(false); }}
           onPointerCancel={() => setIsDragging(false)}
-          className="h-6 flex items-center cursor-pointer relative touch-none group"
         >
-          <div className="h-1.5 bg-gray-300 w-full rounded-full shadow-inner">
-            <div className="h-full bg-primary rounded-full" style={{ width: percent + '%' }} />
-          </div>
-          <div
-            className="absolute w-4 h-4 bg-white rounded-full shadow-md border border-gray-200 transition-transform group-active:scale-125"
-            style={{ left: `clamp(0px, calc(${percent}% - 8px), calc(100% - 16px))` }}
-          />
+          <div className="bar-track"><div className="bar-fill" style={{ width: pct + "%" }} /></div>
+          <div className="bar-knob" style={{ left: `clamp(0px, calc(${pct}% - 6px), calc(100% - 13px))` }} />
         </div>
-        <div className="flex justify-between text-[10px] font-mono text-gray-500 font-medium tracking-tighter px-1">
-          <span>{formatTime(currentTime)}</span>
-          <span>{formatTime(duration)}</span>
-        </div>
+        <div className="times"><span>{fmtTime(currentTime)}</span><span>{fmtTime(duration)}</span></div>
       </div>
     </div>
   );
 }
 
+// 비디오 (mp4 / HLS) — 원본 hls.js 동적 import + 메인오디오 페이드 가드 보존.
 function VideoPlayer({ src, isHls, poster, pauseAudioWithFade, registerStopBehindMedia }) {
   const videoRef = useRef(null);
   const skipNextFadeRef = useRef(false);
-  // thumb 이미지의 원본 비율을 측정하여 컨테이너 비율로 사용. null이면 정사각형 폴백.
   const [thumbAspect, setThumbAspect] = useState(null);
 
   useEffect(() => {
-    if (!poster) {
-      setThumbAspect(null);
-      return;
-    }
+    if (!poster) { setThumbAspect(null); return; }
     const img = new window.Image();
     let cancelled = false;
-    img.onload = () => {
-      if (!cancelled && img.naturalWidth > 0 && img.naturalHeight > 0) {
-        setThumbAspect({ w: img.naturalWidth, h: img.naturalHeight });
-      }
-    };
+    img.onload = () => { if (!cancelled && img.naturalWidth > 0) setThumbAspect({ w: img.naturalWidth, h: img.naturalHeight }); };
     img.src = poster;
     return () => { cancelled = true; };
   }, [poster]);
 
-  // 메인 오디오가 재생을 시작할 때 즉시 정지되도록 stop 함수를 등록.
   useEffect(() => {
     if (!registerStopBehindMedia) return;
     registerStopBehindMedia(() => {
@@ -351,68 +186,39 @@ function VideoPlayer({ src, isHls, poster, pauseAudioWithFade, registerStopBehin
     if (!isHls) return;
     const video = videoRef.current;
     if (!video) return;
-
-    let hls;
-    let cancelled = false;
-
-    if (video.canPlayType('application/vnd.apple.mpegurl')) {
+    let hls, cancelled = false;
+    if (video.canPlayType("application/vnd.apple.mpegurl")) {
       video.src = src;
     } else {
-      import('hls.js').then(({ default: Hls }) => {
+      import("hls.js").then(({ default: Hls }) => {
         if (cancelled) return;
-        if (Hls.isSupported()) {
-          hls = new Hls();
-          hls.loadSource(src);
-          hls.attachMedia(video);
-        } else {
-          video.src = src;
-        }
+        if (Hls.isSupported()) { hls = new Hls(); hls.loadSource(src); hls.attachMedia(video); }
+        else { video.src = src; }
       });
     }
-
-    return () => {
-      cancelled = true;
-      if (hls) hls.destroy();
-    };
+    return () => { cancelled = true; if (hls) hls.destroy(); };
   }, [src, isHls]);
 
-  // 오디오 페이드아웃이 완료되기 전에는 비디오가 재생되지 않도록 가드.
-  // 첫 onPlay에서 즉시 pause → await fade → play 순서로 강제.
+  // 오디오 페이드아웃 완료 전 비디오 재생 방지 (원본 가드).
   const handlePlay = async (e) => {
-    if (skipNextFadeRef.current) {
-      skipNextFadeRef.current = false;
-      return;
-    }
+    if (skipNextFadeRef.current) { skipNextFadeRef.current = false; return; }
     const v = e.currentTarget;
     v.pause();
-    await pauseAudioWithFade();
+    if (pauseAudioWithFade) await pauseAudioWithFade();
     skipNextFadeRef.current = true;
-    try {
-      await v.play();
-    } catch {
-      skipNextFadeRef.current = false;
-    }
+    try { await v.play(); } catch { skipNextFadeRef.current = false; }
   };
 
   return (
-    <div
-      className="w-full bg-white/40 backdrop-blur-md rounded-3xl border border-white/60 overflow-hidden shadow-lg relative"
-      style={
-        thumbAspect
-          ? { aspectRatio: `${thumbAspect.w} / ${thumbAspect.h}`, maxHeight: '65vh' }
-          : { aspectRatio: '1 / 1' }
-      }
-    >
-      <video
-        ref={videoRef}
-        src={isHls ? undefined : src}
-        poster={poster}
-        controls
-        playsInline
-        preload="metadata"
-        onPlay={handlePlay}
-        className="w-full h-full object-contain bg-black"
-      />
-    </div>
+    <video
+      ref={videoRef}
+      src={isHls ? undefined : src}
+      poster={poster}
+      controls
+      playsInline
+      preload="metadata"
+      onPlay={handlePlay}
+      style={{ width: "100%", aspectRatio: thumbAspect ? `${thumbAspect.w} / ${thumbAspect.h}` : "16 / 9", objectFit: "contain", background: "#000", display: "block" }}
+    />
   );
 }

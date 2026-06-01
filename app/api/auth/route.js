@@ -5,9 +5,9 @@ import crypto from 'crypto';
 export async function POST(request) {
   const { action, id, token, pin } = await request.json();
 
-  const buyer = BUYER_DATA[id];
+  const buyer = BUYER_DATA[token];
 
-  if (!buyer || buyer.token !== token) {
+  if (!buyer || String(buyer.album) !== String(id)) {
     return NextResponse.json({ error: 'Invalid access' }, { status: 401 });
   }
 

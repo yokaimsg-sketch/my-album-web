@@ -69,13 +69,14 @@ export function LoginScreen({ logoSrc, albumTitle, buyerNo, logoH = 40, toggleab
 }
 
 // 인트로 — opacity는 부모(page.js)의 introOpacity로 제어 (원본 타이밍 보존).
-export function IntroScreen({ buyerNo, opacity }) {
+export function IntroScreen({ albumName, buyerNo, opacity }) {
   return (
     <div className="overlay" style={{ opacity, transition: "opacity 1s ease" }}>
       <p className="kicker" style={{ marginBottom: 24 }}>Welcome</p>
       <h1 className="kr" style={{ fontSize: 26, fontWeight: 500, lineHeight: 1.6, color: "var(--text)" }}>
-        당신은 <span className="intro-num">{buyerNo}번째</span><br />
-        이 앨범의 주인입니다.
+        {albumName}의 <span className="intro-num">{buyerNo}번째</span><br />
+        구매자가 되어주셔서<br />
+        감사합니다!
       </h1>
       <p className="label-mono" style={{ marginTop: 28 }}>Digital Experience</p>
     </div>

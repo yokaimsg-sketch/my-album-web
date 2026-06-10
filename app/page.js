@@ -7,6 +7,7 @@ import { Icon } from "./components/icons";
 import { LoginScreen, IntroScreen } from "./components/AuthScreens";
 import PlayerDock from "./components/PlayerDock";
 import BehindTab from "./components/BehindTab";
+import AlbumNote from "./components/AlbumNote";
 
 export default function AlbumPage() {
   // === 시스템 상태 ===
@@ -535,7 +536,7 @@ export default function AlbumPage() {
       )}
 
       {viewState === "intro" && (
-        <IntroScreen buyerNo={buyerInfo?.number} opacity={introOpacity / 100} />
+        <IntroScreen albumName={album?.앨범명} buyerNo={buyerInfo?.number} opacity={introOpacity / 100} />
       )}
 
       {viewState === "main" && album && (
@@ -644,7 +645,7 @@ export default function AlbumPage() {
                 </div>
               )}
 
-              {album.노트 && <p className="album-note fade-up d4">{album.노트}</p>}
+              {album.노트 && <AlbumNote text={album.노트} />}
             </div>
           )}
 

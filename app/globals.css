@@ -170,10 +170,13 @@ body {
 .liner { margin: 22px 24px 4px; padding: 18px 20px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 22px; backdrop-filter: blur(18px); }
 .liner-head { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; }
 .liner-rule { flex: 1; height: 1px; background: linear-gradient(90deg, var(--border-strong), transparent); }
-.liner-body { color: var(--muted); font-family: var(--font-kr); font-size: 13.5px; line-height: 1.85; word-break: keep-all; white-space: pre-line; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden; }
-.liner-body.open { display: block; -webkit-line-clamp: unset; overflow: visible; }
+.liner-body { color: var(--muted); font-family: var(--font-kr); font-size: 13.5px; line-height: 1.85; word-break: keep-all; white-space: pre-line; max-height: calc(1.85em * 4); overflow: hidden; transition: max-height 0.5s cubic-bezier(0.22,1,0.36,1); }
+.liner-body.full { max-height: none; }
+.liner-body.clamped { -webkit-mask-image: linear-gradient(180deg, #000 56%, transparent); mask-image: linear-gradient(180deg, #000 56%, transparent); }
 .liner-toggle { margin-top: 12px; display: inline-flex; align-items: center; gap: 7px; padding: 4px 0; background: none; border: none; cursor: pointer; font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.24em; text-transform: uppercase; font-weight: 700; color: var(--accent); }
-.liner-sign { display: grid; place-items: center; width: 15px; height: 15px; border-radius: 50%; border: 1px solid var(--border-strong); font-size: 11px; line-height: 1; }
+.liner-sign { display: grid; place-items: center; width: 15px; height: 15px; border-radius: 50%; border: 1px solid var(--border-strong); font-size: 11px; line-height: 1; transition: border-color 0.3s ease; }
+.liner-toggle[aria-expanded="true"] .liner-sign { border-color: var(--accent); }
+@media (prefers-reduced-motion: reduce) { .liner-body { transition: none; } }
 
 /* ── 하단 도킹 플레이어 (fixed) ───────────────────────── */
 .player-dock { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; padding: 18px 24px max(26px, env(safe-area-inset-bottom)); display: flex; justify-content: center; background: linear-gradient(180deg, transparent, var(--bg-solid) 42%); pointer-events: none; }

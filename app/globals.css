@@ -198,10 +198,13 @@ body {
      색이 되어, 반쯤 덮인 알약 위에서 글자가 씻겨 보인다. 대신 알약이 글자의
      '가운데'를 지나는 시점에 짧게 전환한다. 그 전에는 글자가 대부분 알약 밖,
      그 후에는 대부분 알약 안이라 양쪽 모두 배경에 맞는 색을 갖는다.
-     ⚠ 지연값(0.05s)은 위 이동 곡선에 묶여 있다. 이동 시간이나 곡선을 바꾸면
-     '진행률 50%가 되는 시점'을 다시 계산해 맞출 것. */
-  .tab, .face-toggle button { position: relative; z-index: 1; transition: color 0.1s ease 0.05s; }
-  .tab.active, .face-toggle button.active { background: transparent; transition: color 0.1s ease 0.05s; }
+     ⚠ 이 타이밍(0.02s 후 0.06s)은 위 이동 곡선에 묶여 있다. 현재 곡선은 출발이 빨라
+     알약이 22ms에 글자를 벗어나기 시작해 82ms에 완전히 비켜난다. 색 전환을 그 구간에
+     맞추지 않으면 — 예컨대 더 늦게 끝나면 — 글자가 이미 알약 밖(배경색 위)인데 아직
+     알약 위에 있을 때의 색이라 배경에 묻혀 깜빡이는 것처럼 보인다.
+     이동 시간이나 곡선을 바꾸면 '글자가 알약에 덮이고 벗겨지는 구간'을 다시 재서 맞출 것. */
+  .tab, .face-toggle button { position: relative; z-index: 1; transition: color 0.06s ease 0.02s; }
+  .tab.active, .face-toggle button.active { background: transparent; transition: color 0.06s ease 0.02s; }
 
   @media (prefers-reduced-motion: reduce) {
     .tabs-inner::before, .face-toggle::before { transition: none; }

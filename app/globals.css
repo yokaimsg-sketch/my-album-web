@@ -170,6 +170,42 @@ body {
 .face-toggle button { flex: 1; padding: 9px 0; border: none; background: transparent; cursor: pointer; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; font-weight: 700; color: var(--muted); border-radius: 999px; transition: all 0.25s ease; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
 .face-toggle button.active { background: var(--accent); color: var(--on-accent); }
 
+/* 선택 바 (Main↔Behind, Cover↔가사) — 포인트 색 알약이 좌우로 미끄러진다.
+   버튼 배경을 직접 칠하는 대신 컨테이너의 ::before 를 옮겨 화면 전환과 같은 0.6s로 이동시킨다.
+   두 그룹은 padding 4 / gap 4 / 자식 flex:1 로 기하가 같아 규칙 하나로 처리된다.
+   :has() 미지원 브라우저는 위의 기존 규칙(즉시 전환)을 그대로 쓴다. */
+@supports selector(:has(*)) {
+  .tabs-inner, .face-toggle { position: relative; }
+
+  .tabs-inner::before, .face-toggle::before {
+    content: "";
+    position: absolute;
+    top: 4px; bottom: 4px; left: 4px;
+    width: calc((100% - 12px) / 2); /* 좌우 패딩 8 + gap 4 를 뺀 절반 = 버튼 하나 폭 */
+    border-radius: 999px;
+    background: var(--accent);
+    transition: transform 0.6s ease;
+    pointer-events: none;
+  }
+
+  /* 두 번째 버튼이 활성이면 자기 폭 + gap 만큼 오른쪽으로 */
+  .tabs-inner:has(.tab:nth-child(2).active)::before,
+  .face-toggle:has(button:nth-child(2).active)::before { transform: translateX(calc(100% + 4px)); }
+
+  /* 라벨은 알약 위로.
+     글자색을 이동 시간(0.6s) 내내 서서히 바꾸면 중간에 muted↔on-accent 사이의
+     어중간한 색이 되어, 반쯤 덮인 알약 위에서 글자가 씻겨 보인다.
+     대신 알약이 글자의 '가운데'를 지나는 시점(이동의 약 50% = ease 기준 0.16s)에
+     짧게 전환한다. 그 전에는 글자가 대부분 알약 밖, 그 후에는 대부분 알약 안이라
+     양쪽 모두 배경에 맞는 색을 갖는다. */
+  .tab, .face-toggle button { position: relative; z-index: 1; transition: color 0.12s ease 0.16s; }
+  .tab.active, .face-toggle button.active { background: transparent; transition: color 0.12s ease 0.16s; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .tabs-inner::before, .face-toggle::before { transition: none; }
+  }
+}
+
 /* 앨범 소개 (About) — 가변 길이 라이너 노트 카드 */
 .liner { margin: 22px 24px 4px; padding: 18px 20px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 22px; backdrop-filter: blur(18px); }
 .liner-head { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; }

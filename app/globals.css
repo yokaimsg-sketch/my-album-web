@@ -151,6 +151,10 @@ body {
 
 /* 가사 면 */
 .lyrics-face { display: flex; flex-direction: column; background: var(--surface-strong); backdrop-filter: blur(16px); }
+/* 가사 면은 조건부 마운트라 .hero-face의 transition이 발동하지 않는다(클래스 변화가 없음).
+   커버가 .hide로 빠져나가는 모션을 뒤집어 같은 0.6s ease로 들어오게 해 양방향 속도감을 맞춘다. */
+.lyrics-face { animation: faceIn 0.6s ease both; }
+@media (prefers-reduced-motion: reduce) { .lyrics-face { animation: none; } }
 .lyrics-head { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; padding: 18px 22px 8px; }
 .autoscroll-btn { font-family: var(--font-mono); font-size: 8px; letter-spacing: 0.2em; font-weight: 700; padding: 6px 11px; border-radius: 999px; cursor: pointer; border: 1px solid var(--border-strong); background: transparent; color: var(--muted); transition: all 0.2s ease; }
 .autoscroll-btn.on { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
@@ -249,6 +253,7 @@ body {
 /* ── 애니메이션 ────────────────────────────────────────── */
 @keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes faceIn { from { opacity: 0; transform: scale(1.04); } to { opacity: 1; transform: scale(1); } }
 .fade-up { animation: fadeUp 0.7s cubic-bezier(0.22,1,0.36,1) both; }
 .fade-in { animation: fadeIn 0.6s ease both; }
 .d1 { animation-delay: 0.06s; } .d2 { animation-delay: 0.14s; } .d3 { animation-delay: 0.24s; } .d4 { animation-delay: 0.34s; }

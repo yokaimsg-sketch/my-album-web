@@ -171,7 +171,8 @@ body {
 .face-toggle button.active { background: var(--accent); color: var(--on-accent); }
 
 /* 선택 바 (Main↔Behind, Cover↔가사) — 포인트 색 알약이 좌우로 미끄러진다.
-   버튼 배경을 직접 칠하는 대신 컨테이너의 ::before 를 옮겨 화면 전환과 같은 0.6s로 이동시킨다.
+   버튼 배경을 직접 칠하는 대신 컨테이너의 ::before 를 옮긴다.
+   빠르게 출발해 부드럽게 멈추는 곡선이라 누른 즉시 반응하는 느낌을 준다.
    두 그룹은 padding 4 / gap 4 / 자식 flex:1 로 기하가 같아 규칙 하나로 처리된다.
    :has() 미지원 브라우저는 위의 기존 규칙(즉시 전환)을 그대로 쓴다. */
 @supports selector(:has(*)) {
@@ -184,7 +185,7 @@ body {
     width: calc((100% - 12px) / 2); /* 좌우 패딩 8 + gap 4 를 뺀 절반 = 버튼 하나 폭 */
     border-radius: 999px;
     background: var(--accent);
-    transition: transform 0.6s ease;
+    transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
     pointer-events: none;
   }
 
@@ -193,13 +194,14 @@ body {
   .face-toggle:has(button:nth-child(2).active)::before { transform: translateX(calc(100% + 4px)); }
 
   /* 라벨은 알약 위로.
-     글자색을 이동 시간(0.6s) 내내 서서히 바꾸면 중간에 muted↔on-accent 사이의
-     어중간한 색이 되어, 반쯤 덮인 알약 위에서 글자가 씻겨 보인다.
-     대신 알약이 글자의 '가운데'를 지나는 시점(이동의 약 50% = ease 기준 0.16s)에
-     짧게 전환한다. 그 전에는 글자가 대부분 알약 밖, 그 후에는 대부분 알약 안이라
-     양쪽 모두 배경에 맞는 색을 갖는다. */
-  .tab, .face-toggle button { position: relative; z-index: 1; transition: color 0.12s ease 0.16s; }
-  .tab.active, .face-toggle button.active { background: transparent; transition: color 0.12s ease 0.16s; }
+     글자색을 이동 시간 내내 서서히 바꾸면 중간에 muted↔on-accent 사이의 어중간한
+     색이 되어, 반쯤 덮인 알약 위에서 글자가 씻겨 보인다. 대신 알약이 글자의
+     '가운데'를 지나는 시점에 짧게 전환한다. 그 전에는 글자가 대부분 알약 밖,
+     그 후에는 대부분 알약 안이라 양쪽 모두 배경에 맞는 색을 갖는다.
+     ⚠ 지연값(0.05s)은 위 이동 곡선에 묶여 있다. 이동 시간이나 곡선을 바꾸면
+     '진행률 50%가 되는 시점'을 다시 계산해 맞출 것. */
+  .tab, .face-toggle button { position: relative; z-index: 1; transition: color 0.1s ease 0.05s; }
+  .tab.active, .face-toggle button.active { background: transparent; transition: color 0.1s ease 0.05s; }
 
   @media (prefers-reduced-motion: reduce) {
     .tabs-inner::before, .face-toggle::before { transition: none; }

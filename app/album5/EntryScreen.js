@@ -8,7 +8,7 @@ export default function EntryScreen({ cover, titleLines, onEnter }) {
     <div className="overlay fade-in">
       {cover && <img className="a5-entry-cover" src={cover} alt="" />}
 
-      <div className="kicker" style={{ marginBottom: 18 }}>Private Access</div>
+      <div className="kicker" style={{ marginBottom: 18 }}>Digital Experience</div>
 
       <p className="a5-entry-title">
         {titleLines.map((line) => (

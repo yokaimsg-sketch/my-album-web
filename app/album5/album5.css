@@ -101,6 +101,10 @@
     0 0 60px -30px var(--accent);
 }
 
+/* 비하인드 헤더 — 5집은 logo5.png 가 없어 그 자리에 커버 아트를 쓴다.
+   .behind-head .lg 는 로고 전제라 각지게 나오므로 모서리만 둥글린다. */
+[data-treatment="starry"] .behind-head .lg { border-radius: 12px; }
+
 /* ── 곡 소개 패널 (가사 자리를 대체) ───────────────────── */
 .a5-note-face { display: flex; flex-direction: column; text-align: left; }
 .a5-note-head { flex: 0 0 auto; padding: 20px 22px 0; }

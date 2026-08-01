@@ -45,8 +45,6 @@ export default function Album5Page() {
 
   const track = ALBUM5.트랙리스트[currentTrack - 1];
   const trackCount = ALBUM5.트랙리스트.length;
-  const behindItems = ALBUM5.비하인드?.아이템 || [];
-  const hasBehind = behindItems.length > 0;
 
   // 테마 토큰을 1회 주입 (매 틱 리렌더 inline style 회피 → iOS backdrop-blur 점멸 방지).
   // globals.css 는 :root 에 앨범1(크림색) 기본값을 두고 body 배경도 거기서 가져간다.
@@ -66,9 +64,6 @@ export default function Album5Page() {
     if (!m) { m = document.createElement("meta"); m.setAttribute("name", "theme-color"); document.head.appendChild(m); }
     m.setAttribute("content", c);
   }, []);
-
-  // 브라우저 탭 제목
-  useEffect(() => { document.title = ALBUM5.제목; }, []);
 
   // 언마운트 시 메모리 누수 방지
   useEffect(() => {
@@ -425,18 +420,16 @@ export default function Album5Page() {
 
       {viewState === "main" && (
         <>
-          {hasBehind && (
-            <nav className="tabs">
-              <div className="tabs-inner">
-                <button className={"tab" + (currentTab === "메인" ? " active" : "")} onClick={() => setCurrentTab("메인")}>Main</button>
-                <button className={"tab" + (currentTab === "비하인드" ? " active" : "")} onClick={() => setCurrentTab("비하인드")}>Behind</button>
-              </div>
-            </nav>
-          )}
+          <nav className="tabs">
+            <div className="tabs-inner">
+              <button className={"tab" + (currentTab === "메인" ? " active" : "")} onClick={() => setCurrentTab("메인")}>Main</button>
+              <button className={"tab" + (currentTab === "비하인드" ? " active" : "")} onClick={() => setCurrentTab("비하인드")}>Behind</button>
+            </div>
+          </nav>
 
-          {(!hasBehind || currentTab === "메인") && (
+          {currentTab === "메인" && (
             <div className="wrap">
-              <header className="album-head fade-up" style={hasBehind ? undefined : { paddingTop: 26 }}>
+              <header className="album-head fade-up">
                 <div className="head-top">
                   <div className="kicker">{ALBUM5_THEME.kicker}</div>
                 </div>
@@ -521,7 +514,7 @@ export default function Album5Page() {
             </div>
           )}
 
-          {hasBehind && currentTab === "비하인드" && (
+          {currentTab === "비하인드" && (
             <BehindTab
               data={ALBUM5.비하인드}
               logoSrc={ALBUM5.커버}

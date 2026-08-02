@@ -13,10 +13,17 @@ export default function AlbumNote({ text, label = "About" }) {
   const mounted = useRef(false);
 
   // 오버플로 측정 (폰트 swap / 리사이즈 반영)
+  // "지금 넘치고 있나"가 아니라 "내용이 접힘 높이보다 긴가"를 묻는다.
+  // 펼치면 maxHeight가 none이 되어 scrollHeight === clientHeight가 되므로, 전자로 재면
+  // 펼친 상태에서 resize가 올 때 답이 뒤집혀 토글 버튼이 사라진다.
+  // scrollHeight는 펼침/접힘과 무관하게 늘 전체 내용 높이라 후자는 상태에 흔들리지 않는다.
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const measure = () => setOverflowing(el.scrollHeight - el.clientHeight > 2);
+    const measure = () => {
+      const lh = parseFloat(getComputedStyle(el).lineHeight) || 25;
+      setOverflowing(el.scrollHeight > lh * COLLAPSED_LINES + 2);
+    };
     measure();
     window.addEventListener("resize", measure);
     if (document.fonts?.ready) document.fonts.ready.then(measure);

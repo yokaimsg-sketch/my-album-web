@@ -8,6 +8,7 @@ export default function BehindTab({ data, logoSrc, albumTitle, logoH = 30, pause
   const items = data?.아이템 || [];
   const [idx, setIdx] = useState(0);
   const thumbRefs = useRef([]);
+  const stageRef = useRef(null);
   const safe = items.length ? Math.min(idx, items.length - 1) : 0;
 
   // 선택 썸네일을 스트립 안에서 가운데로 (페이지 전체 스크롤 유발 방지 위해 컨테이너 scrollTo 사용)
@@ -32,6 +33,80 @@ export default function BehindTab({ data, logoSrc, albumTitle, logoH = 30, pause
     return () => window.removeEventListener("keydown", onKey);
   }, [items.length]);
 
+  // 뷰어에서만 스와이프를 처리한다. 썸네일 스크롤과 미디어 컨트롤은 그대로 둔다.
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage || items.length <= 1) return;
+    let gesture = null;
+
+    const reset = () => { gesture = null; };
+    const isFullscreen = () => Boolean(
+      document.fullscreenElement || document.webkitFullscreenElement ||
+      stage.querySelector("video")?.webkitDisplayingFullscreen
+    );
+
+    const onStart = (e) => {
+      reset();
+      if (e.touches.length !== 1 || isFullscreen()) return;
+      if (e.target.closest?.("button, input, textarea, select, audio, .bar, [role='slider']")) return;
+
+      const touch = e.touches[0];
+      const video = e.target.closest?.("video");
+      // 네이티브 컨트롤은 shadow DOM 내부라 하단 영역을 좌표로 보호한다.
+      if (video) {
+        const rect = video.getBoundingClientRect();
+        if (touch.clientY >= rect.bottom - 72) return;
+      }
+      gesture = { id: touch.identifier, x: touch.clientX, y: touch.clientY, horizontal: false };
+    };
+
+    const onMove = (e) => {
+      if (!gesture) return;
+      if (e.touches.length !== 1 || isFullscreen()) { reset(); return; }
+      const touch = e.touches[0];
+      if (touch.identifier !== gesture.id) { reset(); return; }
+      const dx = Math.abs(touch.clientX - gesture.x);
+      const dy = Math.abs(touch.clientY - gesture.y);
+
+      if (!gesture.horizontal) {
+        if (Math.max(dx, dy) < 8) return;
+        // 세로/대각선으로 시작한 동작은 끝까지 브라우저 스크롤에 맡긴다.
+        if (dx < dy * 1.5) { reset(); return; }
+        gesture.horizontal = true;
+      }
+      // 이미 브라우저가 스크롤을 시작한 경우 뒤늦게 항목을 전환하지 않는다.
+      if (!e.cancelable) { reset(); return; }
+      e.preventDefault();
+    };
+
+    const onEnd = (e) => {
+      const swipe = gesture;
+      reset();
+      if (!swipe?.horizontal || e.touches.length || isFullscreen()) return;
+      const touch = Array.from(e.changedTouches).find((t) => t.identifier === swipe.id);
+      if (!touch) return;
+      const dx = touch.clientX - swipe.x;
+      const dy = touch.clientY - swipe.y;
+      if (Math.abs(dx) < 48 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+      // 스와이프 후 합성 클릭이 영상 재생이나 버튼 클릭으로 이어지지 않게 한다.
+      if (e.cancelable) e.preventDefault();
+      setIdx(Math.max(0, Math.min(items.length - 1, safe + (dx < 0 ? 1 : -1))));
+    };
+
+    // React의 passive 터치 리스너 대신, 수평 이동에서만 취소 가능한 리스너 사용.
+    stage.addEventListener("touchstart", onStart, { capture: true, passive: true });
+    stage.addEventListener("touchmove", onMove, { capture: true, passive: false });
+    stage.addEventListener("touchend", onEnd, { capture: true, passive: false });
+    stage.addEventListener("touchcancel", reset, { capture: true, passive: true });
+    return () => {
+      reset();
+      stage.removeEventListener("touchstart", onStart, true);
+      stage.removeEventListener("touchmove", onMove, true);
+      stage.removeEventListener("touchend", onEnd, true);
+      stage.removeEventListener("touchcancel", reset, true);
+    };
+  }, [items.length, safe]);
+
   if (!items.length) {
     return (
       <div className="behind" style={{ textAlign: "center", paddingTop: 40 }}>
@@ -53,7 +128,7 @@ export default function BehindTab({ data, logoSrc, albumTitle, logoH = 30, pause
         <span className="kicker">Behind the Scenes</span>
       </div>
 
-      <div className="behind-stage fade-up d1" style={{ aspectRatio: cur.종류 === "오디오" ? "1 / 1" : "auto" }}>
+      <div ref={stageRef} className="behind-stage fade-up d1" style={{ aspectRatio: cur.종류 === "오디오" ? "1 / 1" : "auto" }}>
         <span className="behind-counter">{String(safe + 1).padStart(2, "0")} / {String(items.length).padStart(2, "0")}</span>
         <BehindViewer key={safe} item={cur} pauseAudioWithFade={pauseAudioWithFade} registerStopBehindMedia={registerStopBehindMedia} />
         <button className="behind-nav prev" disabled={safe === 0} onClick={() => setIdx(safe - 1)} aria-label="이전"><Icon.chevL s={22} /></button>

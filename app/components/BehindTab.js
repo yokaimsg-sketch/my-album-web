@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Icon, fmtTime } from "./icons";
 
 // 비하인드 탭 — 디자인은 새 시스템, 미디어 로직(메인오디오 페이드·상호 정지·HLS)은 원본 보존.
@@ -9,7 +9,61 @@ export default function BehindTab({ data, logoSrc, albumTitle, logoH = 30, pause
   const [idx, setIdx] = useState(0);
   const thumbRefs = useRef([]);
   const stageRef = useRef(null);
+  const hideTimerRef = useRef(null);
+  const fullscreenRef = useRef(false);
+  const [controlsVisible, setControlsVisible] = useState(true);
+  const [controlsHiddenImmediately, setControlsHiddenImmediately] = useState(false);
   const safe = items.length ? Math.min(idx, items.length - 1) : 0;
+
+  const showControls = useCallback(() => {
+    clearTimeout(hideTimerRef.current);
+    if (fullscreenRef.current) return;
+    setControlsHiddenImmediately(false);
+    setControlsVisible(true);
+    hideTimerRef.current = setTimeout(() => setControlsVisible(false), 1200);
+  }, []);
+
+  const hideControlsImmediately = useCallback(() => {
+    clearTimeout(hideTimerRef.current);
+    setControlsHiddenImmediately(true);
+    setControlsVisible(false);
+  }, []);
+
+  useEffect(() => {
+    if (!items.length) return undefined;
+    const revealTimer = setTimeout(showControls, 0);
+    return () => {
+      clearTimeout(revealTimer);
+      clearTimeout(hideTimerRef.current);
+    };
+  }, [safe, items.length, showControls]);
+
+  // 표준 Fullscreen API와 iOS 네이티브 영상 전체화면을 모두 처리한다.
+  useEffect(() => {
+    const video = stageRef.current?.querySelector("video");
+    const onFullscreenChange = () => {
+      fullscreenRef.current = Boolean(document.fullscreenElement || document.webkitFullscreenElement || video?.webkitDisplayingFullscreen);
+      if (fullscreenRef.current) hideControlsImmediately();
+      else showControls();
+    };
+    const onVideoFullscreenBegin = () => { fullscreenRef.current = true; hideControlsImmediately(); };
+    const onVideoFullscreenEnd = () => { fullscreenRef.current = false; showControls(); };
+    document.addEventListener("fullscreenchange", onFullscreenChange);
+    document.addEventListener("webkitfullscreenchange", onFullscreenChange);
+    video?.addEventListener("webkitbeginfullscreen", onVideoFullscreenBegin);
+    video?.addEventListener("webkitendfullscreen", onVideoFullscreenEnd);
+    return () => {
+      fullscreenRef.current = false;
+      document.removeEventListener("fullscreenchange", onFullscreenChange);
+      document.removeEventListener("webkitfullscreenchange", onFullscreenChange);
+      video?.removeEventListener("webkitbeginfullscreen", onVideoFullscreenBegin);
+      video?.removeEventListener("webkitendfullscreen", onVideoFullscreenEnd);
+    };
+  }, [safe, items.length, hideControlsImmediately, showControls]);
+
+  const handleMouseActivity = (e) => {
+    if (e.pointerType === "mouse" && e.buttons === 0) showControls();
+  };
 
   // 선택 썸네일을 스트립 안에서 가운데로 (페이지 전체 스크롤 유발 방지 위해 컨테이너 scrollTo 사용)
   useEffect(() => {
@@ -120,6 +174,7 @@ export default function BehindTab({ data, logoSrc, albumTitle, logoH = 30, pause
     );
   }
   const cur = items[safe];
+  const isVideo = cur.종류 === "mp4" || cur.종류 === "hls";
 
   return (
     <div className="behind fade-up">
@@ -128,11 +183,32 @@ export default function BehindTab({ data, logoSrc, albumTitle, logoH = 30, pause
         <span className="kicker">Behind the Scenes</span>
       </div>
 
-      <div ref={stageRef} className="behind-stage fade-up d1" style={{ aspectRatio: cur.종류 === "오디오" ? "1 / 1" : "auto" }}>
-        <span className="behind-counter">{String(safe + 1).padStart(2, "0")} / {String(items.length).padStart(2, "0")}</span>
+      <div
+        ref={stageRef}
+        className="behind-stage fade-up d1"
+        style={{ aspectRatio: cur.종류 === "오디오" ? "1 / 1" : "auto" }}
+        onPointerEnter={handleMouseActivity}
+        onPointerMove={handleMouseActivity}
+        onPointerDownCapture={(e) => {
+          if (e.target.closest?.("video")) hideControlsImmediately();
+        }}
+        onClick={(e) => {
+          if (cur.종류 === "이미지" && !e.target.closest?.("button")) showControls();
+        }}
+      >
         <BehindViewer key={safe} item={cur} pauseAudioWithFade={pauseAudioWithFade} registerStopBehindMedia={registerStopBehindMedia} />
-        <button className="behind-nav prev" disabled={safe === 0} onClick={() => setIdx(safe - 1)} aria-label="이전"><Icon.chevL s={22} /></button>
-        <button className="behind-nav next" disabled={safe === items.length - 1} onClick={() => setIdx(safe + 1)} aria-label="다음"><Icon.chevR s={22} /></button>
+        <div
+          className={"behind-controls" + (isVideo ? " is-video" : "")}
+          data-visible={controlsVisible}
+          data-immediate-hidden={controlsHiddenImmediately}
+          onFocusCapture={(e) => {
+            if (e.target.matches(":focus-visible")) showControls();
+          }}
+        >
+          <button className="behind-nav prev" disabled={safe === 0} onClick={() => setIdx(safe - 1)} aria-label="이전"><Icon.chevL s={22} /></button>
+          <span className="behind-counter">{String(safe + 1).padStart(2, "0")} / {String(items.length).padStart(2, "0")}</span>
+          <button className="behind-nav next" disabled={safe === items.length - 1} onClick={() => setIdx(safe + 1)} aria-label="다음"><Icon.chevR s={22} /></button>
+        </div>
       </div>
 
       <div className="thumbs fade-up d2">

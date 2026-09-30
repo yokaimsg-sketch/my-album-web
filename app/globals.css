@@ -13,7 +13,10 @@
   /* 폰트 (next/font가 layout.js에서 --font-* 변수 생성) */
   --font-display: var(--font-space-grotesk), var(--font-noto-sans-kr), system-ui, sans-serif;
   --font-kr: var(--font-noto-sans-kr), var(--font-space-grotesk), sans-serif;
-  --font-mono: var(--font-space-mono), ui-monospace, monospace;
+  /* Space Mono 에는 한글 글리프가 없다. Noto Sans KR 을 끼워 넣지 않으면
+     mono 로 표기되는 한글(예: 하단 플레이어의 아티스트명)이 기기 내장 폰트로
+     빠져 기기마다 서체가 달라진다. */
+  --font-mono: var(--font-space-mono), var(--font-noto-sans-kr), ui-monospace, monospace;
 
   /* 그레인(절차적 SVG 텍스처) */
   --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
